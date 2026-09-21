@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import MedicineList from '../components/MedicineList.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
+import { apiFetch } from '../lib/api.js';
 
 export default function Home() {
+  const { user, isAdmin } = useAuth();
   const [medicines, setMedicines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -10,9 +13,8 @@ export default function Home() {
   const fetchMedicines = useCallback(async () => {
     try {
       setError('');
-      const res = await fetch('/api/medicines');
-      if (!res.ok) throw new Error('Failed to fetch medicines');
-      setMedicines(await res.json());
+      const data = await apiFetch('/api/medicines');
+      setMedicines(data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -33,9 +35,15 @@ export default function Home() {
           Track your medicine stock — manufacturing dates, expiry dates, prices
           and quantities, all in one place.
         </p>
-        <Link to="/add" className="btn btn-lg">
-          + Add Medicine
-        </Link>
+        {isAdmin ? (
+          <Link to="/add" className="btn btn-lg">
+            + Add Medicine
+          </Link>
+        ) : (
+          <Link to="/login" className="btn btn-lg">
+            {user ? 'Signed in as staff — view only' : 'Sign in to update stock'}
+          </Link>
+        )}
       </section>
 
       <section>

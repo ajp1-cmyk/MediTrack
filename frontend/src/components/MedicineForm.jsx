@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { apiFetch } from '../lib/api.js';
 
 const emptyForm = {
   name: '',
@@ -31,13 +32,10 @@ export default function MedicineForm({ onCreated }) {
       data.append('stock', form.stock);
       if (form.image) data.append('image', form.image);
 
-      const res = await fetch('/api/medicines', {
+      const result = await apiFetch('/api/medicines', {
         method: 'POST',
-        body: data,
+        body: data, // FormData — apiFetch adds the JWT but not Content-Type
       });
-      const result = await res.json();
-
-      if (!res.ok) throw new Error(result.error || 'Something went wrong');
 
       onCreated(result);
       setForm(emptyForm);

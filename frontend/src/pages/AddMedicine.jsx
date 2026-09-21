@@ -9,7 +9,10 @@ export default function AddMedicine() {
     <main className="page">
       <div className="page-header">
         <h1>Add Medicine</h1>
-        <p>Fill in the details below to add a new medicine to your stock.</p>
+        <p>
+          Fill in the details below to add a new medicine to your stock.
+          This page is only available to administrators.
+        </p>
       </div>
 
       <div className="form-card">

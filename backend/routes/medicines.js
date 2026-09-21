@@ -1,8 +1,14 @@
+// Medicine stock routes (MongoDB / Mongoose).
+//
+// Reading stock is public (the landing page lists it for everyone).
+// Creating / updating / deleting stock requires a signed-in admin.
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const db = require('../db');
+const Medicine = require('../models/Medicine');
+const { requireAuth, requireRole } = require('../middleware/auth');
+const { httpError, asyncHandler } = require('../lib/errors');
 
 const router = express.Router();
 
@@ -26,10 +32,11 @@ const storage = multer.diskStorage({
 const fileFilter = (req, file, cb) => {
   const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   if (allowed.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image files (JPEG, PNG, GIF, WEBP) are allowed'));
+    return cb(null, true);
   }
+  const err = new Error('Only image files (JPEG, PNG, GIF, WEBP) are allowed');
+  err.status = 400;
+  return cb(err);
 };
 
 const upload = multer({
@@ -38,62 +45,129 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max
 });
 
+// Fields a client may change after creation.
+const UPDATABLE_FIELDS = ['name', 'mfd', 'exp', 'price', 'stock'];
+
+// Authentication + admin role, required by every write operation.
+const adminOnly = [requireAuth, requireRole('admin')];
+
+/** Delete an uploaded file from disk, ignoring "already gone" errors. */
+function removeUpload(filename) {
+  if (!filename) return;
+  fs.unlink(path.join(UPLOADS_DIR, filename), () => {});
+}
+
 // GET /api/medicines - list all medicines (newest first)
-router.get('/', (req, res) => {
-  const rows = db.prepare('SELECT * FROM medicines ORDER BY created_at DESC').all();
-  res.json(rows);
-});
+router.get(
+  '/',
+  asyncHandler(async (_req, res) => {
+    const medicines = await Medicine.find().sort({ created_at: -1 });
+    res.json(medicines);
+  })
+);
 
 // GET /api/medicines/:id - get a single medicine
-router.get('/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM medicines WHERE id = ?').get(req.params.id);
-  if (!row) {
-    return res.status(404).json({ error: 'Medicine not found' });
-  }
-  res.json(row);
-});
+router.get(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const medicine = await Medicine.findById(req.params.id);
+    if (!medicine) {
+      throw httpError(404, 'Medicine not found');
+    }
+    res.json(medicine);
+  })
+);
 
-// POST /api/medicines - add a new medicine (multipart/form-data)
-router.post('/', upload.single('image'), (req, res) => {
-  try {
+// POST /api/medicines - add a new medicine (multipart/form-data, admin only)
+router.post(
+  '/',
+  adminOnly,
+  upload.single('image'),
+  asyncHandler(async (req, res) => {
     const { name, mfd, exp, price, stock } = req.body;
 
     if (!name || !mfd || !exp || price === undefined || stock === undefined) {
-      return res
-        .status(400)
-        .json({ error: 'All fields (name, mfd, exp, price, stock) are required' });
+      throw httpError(400, 'All fields (name, mfd, exp, price, stock) are required');
     }
 
-    const priceNum = parseFloat(price);
-    const stockNum = parseInt(stock, 10);
+    const priceNum = Number(price);
+    const stockNum = Number(stock);
 
-    if (isNaN(priceNum) || priceNum < 0) {
-      return res.status(400).json({ error: 'Price must be a valid non-negative number' });
+    if (String(price).trim() === '' || !Number.isFinite(priceNum) || priceNum < 0) {
+      throw httpError(400, 'Price must be a valid non-negative number');
     }
-    if (isNaN(stockNum) || stockNum < 0) {
-      return res.status(400).json({ error: 'Stock must be a valid non-negative integer' });
+    if (String(stock).trim() === '' || !Number.isInteger(stockNum) || stockNum < 0) {
+      throw httpError(400, 'Stock must be a valid non-negative whole number');
     }
 
-    const image = req.file ? req.file.filename : null;
+    const medicine = await Medicine.create({
+      name: name.trim(),
+      mfd,
+      exp,
+      price: priceNum,
+      stock: stockNum,
+      image: req.file ? req.file.filename : null,
+      createdBy: req.user._id,
+    });
 
-    const result = db
-      .prepare(
-        'INSERT INTO medicines (name, mfd, exp, price, stock, image) VALUES (?, ?, ?, ?, ?, ?)'
-      )
-      .run(name.trim(), mfd, exp, priceNum, stockNum, image);
+    res.status(201).json(medicine);
+  })
+);
 
-    const created = db
-      .prepare('SELECT * FROM medicines WHERE id = ?')
-      .get(result.lastInsertRowid);
+// PATCH /api/medicines/:id - update details and/or the stock quantity (admin only)
+router.patch(
+  '/:id',
+  adminOnly,
+  upload.single('image'),
+  asyncHandler(async (req, res) => {
+    const medicine = await Medicine.findById(req.params.id);
+    if (!medicine) {
+      throw httpError(404, 'Medicine not found');
+    }
 
-    res.status(201).json(created);
-  } catch (err) {
-    // If anything fails after the file was saved, clean up the orphan file.
+    let changed = false;
+    for (const field of UPDATABLE_FIELDS) {
+      const value = req.body[field];
+      if (value === undefined) continue;
+      // Mongoose casts strings to Number and runs the schema validators on save.
+      medicine.set(field, typeof value === 'string' ? value.trim() : value);
+      changed = true;
+    }
+
+    let replacedImage = null;
     if (req.file) {
-      fs.unlink(req.file.path, () => {});
+      replacedImage = medicine.image;
+      medicine.image = req.file.filename;
+      changed = true;
     }
-    res.status(500).json({ error: err.message });
-  }
-});
+
+    if (!changed) {
+      throw httpError(
+        400,
+        `Provide at least one field to update (${UPDATABLE_FIELDS.join(', ')}, image)`
+      );
+    }
+
+    await medicine.save();
+    removeUpload(replacedImage);
+
+    res.json(medicine);
+  })
+);
+
+// DELETE /api/medicines/:id - remove a medicine from stock (admin only)
+router.delete(
+  '/:id',
+  adminOnly,
+  asyncHandler(async (req, res) => {
+    const medicine = await Medicine.findByIdAndDelete(req.params.id);
+    if (!medicine) {
+      throw httpError(404, 'Medicine not found');
+    }
+
+    removeUpload(medicine.image);
+    res.json({ success: true, id: medicine._id.toString() });
+  })
+);
 
 module.exports = router;

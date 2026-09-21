@@ -1,15 +1,25 @@
 {
   "name": "meditrack-backend",
   "version": "1.0.0",
-  "description": "MediTrack backend - Express + SQLite (node:sqlite)",
+  "description": "MediTrack backend - Express + MongoDB (Mongoose) with JWT authentication",
   "main": "server.js",
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning server.js",
-    "dev": "node --watch --disable-warning=ExperimentalWarning server.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "db:check": "node scripts/check-db.js",
+    "db:local": "node scripts/local-mongo.js",
+    "test": "node --test"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^7.8.12",
     "multer": "^2.0.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^11.2.0"
   }
 }
