@@ -9,14 +9,27 @@
 require('dotenv').config();
 
 const mongoose = require('mongoose');
-const { MONGODB_URI } = require('../db');
+const {
+  MONGODB_URI,
+  RAW_MONGODB_URI,
+  DEFAULT_DB_NAME,
+  ensureDatabaseName,
+} = require('../db');
 const { connectionTarget, formatConnectionError } = require('../lib/mongoErrors');
 
 async function main() {
   const target = connectionTarget(MONGODB_URI);
+  const databaseWasExplicit = ensureDatabaseName(RAW_MONGODB_URI) === RAW_MONGODB_URI;
+
   console.log('MediTrack MongoDB check');
   console.log(`  target : ${target.uri}`);
   console.log(`  kind   : ${target.cloud ? 'cloud (Atlas / remote)' : 'local'}`);
+  if (!databaseWasExplicit) {
+    console.log(
+      `  note   : MONGODB_URI had no database name — using "${DEFAULT_DB_NAME}". ` +
+        'Add /' + DEFAULT_DB_NAME + ' before the ? in the URI to make this explicit.'
+    );
+  }
   console.log('');
 
   try {
@@ -50,14 +63,29 @@ async function main() {
     }`
   );
 
-  for (const name of ['medicines', 'users']) {
+  for (const name of [
+    'medicines',
+    'users',
+    'carts',
+    'orders',
+    'sessions',
+    'admininvites',
+    'auditlogs',
+  ]) {
     const count = await connection.db.collection(name).countDocuments();
-    console.log(`   • ${name.padEnd(10)} : ${count} document${count === 1 ? '' : 's'}`);
+    console.log(`   • ${name.padEnd(12)} : ${count} document${count === 1 ? '' : 's'}`);
   }
 
-  // Create the indexes the app relies on (unique email, newest-first stock list).
+  // Create the indexes the app relies on (unique email, unique cart/order keys,
+  // newest-first stock list, guest-cart TTL, session token hash + TTL, invites,
+  // audit lookups).
   await require('../models/Medicine').createIndexes();
   await require('../models/User').createIndexes();
+  await require('../models/Cart').createIndexes();
+  await require('../models/Order').createIndexes();
+  await require('../models/Session').createIndexes();
+  await require('../models/AdminInvite').createIndexes();
+  await require('../models/AuditLog').createIndexes();
   console.log('✅ indexes     : ensured');
 
   await mongoose.disconnect();

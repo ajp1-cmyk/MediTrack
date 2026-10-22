@@ -1,12 +1,15 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useCart } from '../context/CartContext.jsx';
 
 export default function Navbar() {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isBackOffice, loading, logout } = useAuth();
+  const { itemCount } = useCart();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    // Also revokes the refresh session on the server.
+    await logout();
     navigate('/');
   };
 
@@ -26,14 +29,38 @@ export default function Navbar() {
           Home
         </NavLink>
 
-        {/* The stock update page is admin-only. */}
-        {isAdmin && (
-          <Link to="/add" className="btn btn-primary">
-            + Add Medicine
+        {/* Staff and admins get the back-office console. */}
+        {isBackOffice && (
+          <Link to="/admin" className="btn btn-primary">
+            Admin console
           </Link>
         )}
 
-        {user ? (
+        {user && (
+          <NavLink
+            to="/orders"
+            className={({ isActive }) => `btn btn-ghost${isActive ? ' active' : ''}`}
+          >
+            Orders
+          </NavLink>
+        )}
+
+        <NavLink
+          to="/cart"
+          className={({ isActive }) => `btn btn-ghost cart-link${isActive ? ' active' : ''}`}
+          aria-label={`Cart, ${itemCount} item${itemCount === 1 ? '' : 's'}`}
+        >
+          <span aria-hidden="true">🛒</span>
+          <span className="cart-link-text">Cart</span>
+          {itemCount > 0 && <span className="cart-badge">{itemCount}</span>}
+        </NavLink>
+
+        {loading ? (
+          // The silent refresh is still in flight; avoid flashing "Sign in".
+          <span className="user-chip" aria-hidden="true">
+            …
+          </span>
+        ) : user ? (
           <>
             <span className="user-chip" title={user.email}>
               {user.name}
@@ -52,3 +79,4 @@ export default function Navbar() {
     </nav>
   );
 }
+

@@ -7,7 +7,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const Medicine = require('../models/Medicine');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requirePermission } = require('../middleware/auth');
+const { recordAudit } = require('../lib/audit');
 const { httpError, asyncHandler } = require('../lib/errors');
 
 const router = express.Router();
@@ -48,8 +49,9 @@ const upload = multer({
 // Fields a client may change after creation.
 const UPDATABLE_FIELDS = ['name', 'mfd', 'exp', 'price', 'stock'];
 
-// Authentication + admin role, required by every write operation.
-const adminOnly = [requireAuth, requireRole('admin')];
+// Authentication + the catalog:write permission (admin and staff), required by
+// every write operation. Customers get 403.
+const canEditStock = [requireAuth, requirePermission('catalog:write')];
 
 /** Delete an uploaded file from disk, ignoring "already gone" errors. */
 function removeUpload(filename) {
@@ -81,7 +83,7 @@ router.get(
 // POST /api/medicines - add a new medicine (multipart/form-data, admin only)
 router.post(
   '/',
-  adminOnly,
+  canEditStock,
   upload.single('image'),
   asyncHandler(async (req, res) => {
     const { name, mfd, exp, price, stock } = req.body;
@@ -110,20 +112,44 @@ router.post(
       createdBy: req.user._id,
     });
 
+    await recordAudit({
+      req,
+      action: 'medicine.create',
+      targetType: 'medicine',
+      targetId: medicine._id,
+      after: {
+        name: medicine.name,
+        mfd: medicine.mfd,
+        exp: medicine.exp,
+        price: medicine.price,
+        stock: medicine.stock,
+        image: medicine.image,
+      },
+    });
+
     res.status(201).json(medicine);
   })
 );
 
-// PATCH /api/medicines/:id - update details and/or the stock quantity (admin only)
+// PATCH /api/medicines/:id - update details and/or the stock quantity (admin/staff)
 router.patch(
   '/:id',
-  adminOnly,
+  canEditStock,
   upload.single('image'),
   asyncHandler(async (req, res) => {
     const medicine = await Medicine.findById(req.params.id);
     if (!medicine) {
       throw httpError(404, 'Medicine not found');
     }
+
+    const before = {
+      name: medicine.name,
+      mfd: medicine.mfd,
+      exp: medicine.exp,
+      price: medicine.price,
+      stock: medicine.stock,
+      image: medicine.image,
+    };
 
     let changed = false;
     for (const field of UPDATABLE_FIELDS) {
@@ -151,21 +177,56 @@ router.patch(
     await medicine.save();
     removeUpload(replacedImage);
 
+    await recordAudit({
+      req,
+      action: 'medicine.update',
+      targetType: 'medicine',
+      targetId: medicine._id,
+      before,
+      after: {
+        name: medicine.name,
+        mfd: medicine.mfd,
+        exp: medicine.exp,
+        price: medicine.price,
+        stock: medicine.stock,
+        image: medicine.image,
+      },
+    });
+
     res.json(medicine);
   })
 );
 
-// DELETE /api/medicines/:id - remove a medicine from stock (admin only)
+// DELETE /api/medicines/:id - remove a medicine from stock (admin/staff)
 router.delete(
   '/:id',
-  adminOnly,
+  canEditStock,
   asyncHandler(async (req, res) => {
-    const medicine = await Medicine.findByIdAndDelete(req.params.id);
+    const medicine = await Medicine.findById(req.params.id);
     if (!medicine) {
       throw httpError(404, 'Medicine not found');
     }
 
+    const before = {
+      name: medicine.name,
+      mfd: medicine.mfd,
+      exp: medicine.exp,
+      price: medicine.price,
+      stock: medicine.stock,
+      image: medicine.image,
+    };
+
+    await medicine.deleteOne();
     removeUpload(medicine.image);
+
+    await recordAudit({
+      req,
+      action: 'medicine.delete',
+      targetType: 'medicine',
+      targetId: medicine._id,
+      before,
+    });
+
     res.json({ success: true, id: medicine._id.toString() });
   })
 );

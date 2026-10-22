@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { apiFetch } from '../lib/api.js';
 
 export default function Home() {
-  const { user, isAdmin } = useAuth();
+  const { user, isBackOffice } = useAuth();
   const [medicines, setMedicines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -32,16 +32,17 @@ export default function Home() {
         <div className="hero-logo">💊</div>
         <h1>Welcome to MediTrack</h1>
         <p>
-          Track your medicine stock — manufacturing dates, expiry dates, prices
-          and quantities, all in one place.
+          Browse the pharmacy stock, add medicines to your cart and check out
+          with home delivery — with manufacturing dates, expiry dates and prices
+          always up to date.
         </p>
-        {isAdmin ? (
-          <Link to="/add" className="btn btn-lg">
-            + Add Medicine
+        {isBackOffice ? (
+          <Link to="/admin" className="btn btn-lg">
+            Open admin console
           </Link>
         ) : (
-          <Link to="/login" className="btn btn-lg">
-            {user ? 'Signed in as staff — view only' : 'Sign in to update stock'}
+          <Link to={user ? '/cart' : '/login'} className="btn btn-lg">
+            {user ? 'View your cart' : 'Sign in to order'}
           </Link>
         )}
       </section>

@@ -3,13 +3,20 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Login() {
-  const { login, register, user } = useAuth();
+  const { login, register, user, sessionExpired, clearSessionExpired } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = location.state?.from || '/';
 
   const [mode, setMode] = useState('login'); // 'login' | 'register'
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  // Customer fields only. Administrator accounts are not self-service: they are
+  // created from the separate, unlinked /admin/register page using the invite
+  // code configured by the site owner.
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -37,12 +44,19 @@ export default function Login() {
     e.preventDefault();
     setSubmitting(true);
     setError('');
+    clearSessionExpired();
 
     try {
       if (mode === 'login') {
         await login(form.email, form.password);
       } else {
-        await register(form);
+        // Sign-up from the storefront always creates a customer account; the
+        // server defaults to the customer role when no role is sent.
+        await register({
+          name: form.name,
+          email: form.email,
+          password: form.password,
+        });
       }
       navigate(redirectTo, { replace: true });
     } catch (err) {
@@ -58,8 +72,8 @@ export default function Login() {
         <h1>{mode === 'login' ? 'Sign in' : 'Create account'}</h1>
         <p>
           {mode === 'login'
-            ? 'Sign in to add or update medicine stock.'
-            : 'The first account created becomes the administrator.'}
+            ? 'Sign in to check out, track orders and manage your account.'
+            : 'Create a customer account to check out, track orders and save your details.'}
         </p>
       </div>
 
@@ -71,6 +85,7 @@ export default function Login() {
             onClick={() => {
               setMode('login');
               setError('');
+              clearSessionExpired();
             }}
           >
             Sign in
@@ -81,25 +96,34 @@ export default function Login() {
             onClick={() => {
               setMode('register');
               setError('');
+              clearSessionExpired();
             }}
           >
             Create account
           </button>
         </div>
 
+        {sessionExpired && (
+          <p className="error" role="alert">
+            Your session expired. Please sign in again.
+          </p>
+        )}
+
         <form className="medicine-form" onSubmit={handleSubmit}>
           {mode === 'register' && (
-            <div className="field">
-              <label htmlFor="name">Full name</label>
-              <input
-                id="name"
-                type="text"
-                value={form.name}
-                onChange={(e) => update('name', e.target.value)}
-                placeholder="e.g. Ada Sharma"
-                required
-              />
-            </div>
+            <>
+              <div className="field">
+                <label htmlFor="name">Full name</label>
+                <input
+                  id="name"
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => update('name', e.target.value)}
+                  placeholder="e.g. Ada Sharma"
+                  required
+                />
+              </div>
+            </>
           )}
 
           <div className="field">
@@ -137,8 +161,8 @@ export default function Login() {
         </form>
 
         <p className="auth-hint">
-          Admins can add, update and delete stock. Staff accounts can only view the stock list.
-          Once the first admin exists, only an admin can create further accounts.
+          Customer accounts can browse stock and place orders. Staff and administrators sign
+          in on the <Link to="/admin/login">back-office page</Link>.
         </p>
       </div>
     </main>

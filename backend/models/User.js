@@ -1,12 +1,17 @@
 // Users collection — used for authentication and role-based authorisation.
 //
 // Roles
-//   admin → can add / update / delete stock (the "stock update" pages)
-//   staff → read-only access to the stock list
+//   customer → storefront: browse, cart, checkout, own orders
+//   staff    → back office: add/update stock and fulfil orders
+//   admin    → everything, including roles, invites and the audit log
+//
+// The permission list for a role lives in lib/permissions.js and is included in
+// the JSON returned to the SPA, so the frontend never duplicates role logic.
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { permissionsFor } = require('../lib/permissions');
 
-const ROLES = ['admin', 'staff'];
+const ROLES = ['customer', 'staff', 'admin'];
 const SALT_ROUNDS = 10;
 
 const userSchema = new mongoose.Schema(
@@ -35,7 +40,19 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: { values: ROLES, message: `Role must be one of: ${ROLES.join(', ')}` },
-      default: 'staff',
+      default: 'customer',
+    },
+    // Bumped whenever every outstanding token must stop working (password
+    // change, "sign out everywhere"). Included in the JWT as `ver` and checked
+    // on every authenticated request.
+    tokenVersion: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    passwordChangedAt: {
+      type: Date,
+      default: null,
     },
   },
   {
@@ -46,6 +63,9 @@ const userSchema = new mongoose.Schema(
         ret.id = ret._id.toString();
         delete ret._id;
         delete ret.passwordHash;
+        // The SPA uses this list to show/hide back-office actions. The API
+        // still enforces everything server-side.
+        ret.permissions = permissionsFor(ret.role);
         return ret;
       },
     },

@@ -1,28 +1,36 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { authApi, getToken, setToken } from '../lib/api.js';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { adminApi, authApi, setToken } from '../lib/api.js';
 
 const AuthContext = createContext(null);
+const AUTH_CHANNEL = 'meditrack-auth';
 
 /**
  * Holds the signed-in user and exposes login / register / logout.
- * The token lives in localStorage so a refresh keeps you signed in.
+ *
+ * The access token is kept in memory by lib/api.js (never localStorage). On a
+ * page load the httpOnly refresh cookie silently restores the session, and
+ * lib/api.js replays any request whose 15-minute access token expired.
  */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  // Only show the "checking your session" state when there is a token to validate.
-  const [loading, setLoading] = useState(Boolean(getToken()));
+  // Always true on first render: we cannot read the httpOnly cookie from JS, so
+  // we try a silent refresh and resolve loading once it answers.
+  const [loading, setLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const channelRef = useRef(null);
 
+  // Restore the session from the refresh cookie on page load.
   useEffect(() => {
-    if (!getToken()) return undefined;
-
     let cancelled = false;
+
     (async () => {
       try {
-        const { user: me } = await authApi.me();
-        if (!cancelled) setUser(me);
+        const data = await authApi.refresh();
+        if (!cancelled && data && data.user) {
+          setUser(data.user);
+        }
       } catch {
-        // Expired or invalid token — drop it and treat the visitor as anonymous.
-        setToken(null);
+        // No cookie / expired session → stay anonymous.
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -33,10 +41,42 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  // lib/api.js fires this when a request 401s and the refresh attempt failed.
+  useEffect(() => {
+    const handleExpired = () => {
+      setToken(null);
+      setUser(null);
+      setSessionExpired(true);
+    };
+
+    window.addEventListener('meditrack:session-expired', handleExpired);
+    return () => window.removeEventListener('meditrack:session-expired', handleExpired);
+  }, []);
+
+  // Sign out of the other tabs as soon as one tab logs out.
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return undefined;
+
+    const channel = new BroadcastChannel(AUTH_CHANNEL);
+    channelRef.current = channel;
+    channel.onmessage = (event) => {
+      if (event.data === 'logout') {
+        setToken(null);
+        setUser(null);
+      }
+    };
+
+    return () => {
+      channel.close();
+      channelRef.current = null;
+    };
+  }, []);
+
   const login = useCallback(async (email, password) => {
     const data = await authApi.login(email, password);
     setToken(data.token);
     setUser(data.user);
+    setSessionExpired(false);
     return data.user;
   }, []);
 
@@ -44,17 +84,77 @@ export function AuthProvider({ children }) {
     const data = await authApi.register(payload);
     setToken(data.token);
     setUser(data.user);
+    setSessionExpired(false);
     return data.user;
   }, []);
 
-  const logout = useCallback(() => {
-    setToken(null);
-    setUser(null);
+  /** Staff/admin sign-in from /admin/login. */
+  const loginAdmin = useCallback(async (email, password) => {
+    const data = await adminApi.login(email, password);
+    setToken(data.token);
+    setUser(data.user);
+    setSessionExpired(false);
+    return data.user;
   }, []);
 
+  /** Redeem an invite link from /admin/register. */
+  const acceptAdminInvite = useCallback(async (payload) => {
+    const data = await adminApi.acceptInvite(payload);
+    setToken(data.token);
+    setUser(data.user);
+    setSessionExpired(false);
+    return data.user;
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      // Revokes this browser's refresh session server-side.
+      await authApi.logout();
+    } catch {
+      // Offline / already expired: still clear the local state.
+    }
+
+    setToken(null);
+    setUser(null);
+    setSessionExpired(false);
+    if (channelRef.current) channelRef.current.postMessage('logout');
+  }, []);
+
+  const clearSessionExpired = useCallback(() => setSessionExpired(false), []);
+
+  const can = useCallback(
+    (permission) => Boolean(user?.permissions?.includes(permission)),
+    [user]
+  );
+
   const value = useMemo(
-    () => ({ user, loading, login, register, logout, isAdmin: user?.role === 'admin' }),
-    [user, loading, login, register, logout]
+    () => ({
+      user,
+      loading,
+      sessionExpired,
+      clearSessionExpired,
+      login,
+      loginAdmin,
+      register,
+      acceptAdminInvite,
+      logout,
+      can,
+      isAdmin: user?.role === 'admin',
+      isStaff: user?.role === 'staff',
+      isBackOffice: user?.role === 'admin' || user?.role === 'staff',
+    }),
+    [
+      user,
+      loading,
+      sessionExpired,
+      clearSessionExpired,
+      login,
+      loginAdmin,
+      register,
+      acceptAdminInvite,
+      logout,
+      can,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -67,3 +167,4 @@ export function useAuth() {
   }
   return ctx;
 }
+

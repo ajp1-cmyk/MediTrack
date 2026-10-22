@@ -11,7 +11,7 @@ export default function AddMedicine() {
         <h1>Add Medicine</h1>
         <p>
           Fill in the details below to add a new medicine to your stock.
-          This page is only available to administrators.
+          This page is available to administrators and staff.
         </p>
       </div>
 

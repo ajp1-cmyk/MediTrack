@@ -11,7 +11,44 @@ const mongoose = require('mongoose');
 const { connectionTarget, formatConnectionError } = require('./lib/mongoErrors');
 
 const DEFAULT_URI = 'mongodb://127.0.0.1:27017/meditrack';
-const MONGODB_URI = process.env.MONGODB_URI || DEFAULT_URI;
+const DEFAULT_DB_NAME = process.env.MONGODB_DB || 'meditrack';
+const RAW_MONGODB_URI = process.env.MONGODB_URI || DEFAULT_URI;
+
+/**
+ * Make sure the connection string names a database.
+ *
+ * Atlas connection strings are often copied as
+ *   mongodb+srv://user:pass@cluster.mongodb.net/?appName=...
+ * which has no database path, so MongoDB silently uses the default `test`
+ * database. Appending the configured name avoids data "disappearing" when the
+ * URI is later corrected.
+ */
+function ensureDatabaseName(uri, dbName = DEFAULT_DB_NAME) {
+  if (typeof uri !== 'string' || !/^mongodb(\+srv)?:\/\//.test(uri)) return uri;
+
+  const queryIndex = uri.indexOf('?');
+  const base = queryIndex === -1 ? uri : uri.slice(0, queryIndex);
+  const query = queryIndex === -1 ? '' : uri.slice(queryIndex);
+
+  // Credentials may contain @ and :, so only split on the first slash after
+  // the host part.
+  const match = base.match(/^(mongodb(?:\+srv)?:\/\/[^/]+)\/?(.*)$/);
+  if (!match) return uri;
+
+  const [, prefix, dbPath] = match;
+  if (dbPath.trim()) return uri; // already names a database
+
+  return `${prefix}/${encodeURIComponent(dbName)}${query}`;
+}
+
+const MONGODB_URI = ensureDatabaseName(RAW_MONGODB_URI);
+
+if (MONGODB_URI !== RAW_MONGODB_URI) {
+  console.warn(
+    `[warn] MONGODB_URI did not name a database — using "${DEFAULT_DB_NAME}". ` +
+      `Add /${DEFAULT_DB_NAME} to the URI (or set MONGODB_DB) to make this explicit.`
+  );
+}
 
 /**
  * Connect to MongoDB. Safe to call once at boot; Mongoose pools the sockets.
@@ -19,6 +56,7 @@ const MONGODB_URI = process.env.MONGODB_URI || DEFAULT_URI;
  * @returns {Promise<import('mongoose').Connection>}
  */
 async function connectDB(uri = MONGODB_URI) {
+  const resolvedUri = ensureDatabaseName(uri);
   mongoose.set('strictQuery', true);
 
   if (mongoose.connection.readyState === 1) {
@@ -26,13 +64,13 @@ async function connectDB(uri = MONGODB_URI) {
   }
 
   try {
-    await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+    await mongoose.connect(resolvedUri, { serverSelectionTimeoutMS: 10000 });
   } catch (err) {
     // Replace the raw driver error with one that says what to fix.
-    throw new Error(formatConnectionError(err, uri));
+    throw new Error(formatConnectionError(err, resolvedUri));
   }
 
-  const target = connectionTarget(uri);
+  const target = connectionTarget(resolvedUri);
   console.log(
     `✅ MongoDB connected (${target.cloud ? 'cloud' : 'local'}: ${target.host}, db: ${mongoose.connection.name})`
   );
@@ -44,5 +82,14 @@ async function disconnectDB() {
   await mongoose.disconnect();
 }
 
-module.exports = { connectDB, disconnectDB, MONGODB_URI, DEFAULT_URI };
+module.exports = {
+  connectDB,
+  disconnectDB,
+  ensureDatabaseName,
+  MONGODB_URI,
+  RAW_MONGODB_URI,
+  DEFAULT_URI,
+  DEFAULT_DB_NAME,
+};
+
 
