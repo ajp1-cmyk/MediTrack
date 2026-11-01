@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>MediTrack Project Report</title>
+<style>
+@page { size: A4; margin: 2.2cm 2.1cm 2.0cm 2.1cm; }
+body { font-family: "Times New Roman", Times, serif; font-size: 11pt; line-height: 1.35; color: #000; }
+h1 { font-size: 15pt; margin: 18pt 0 8pt; page-break-after: avoid; }
+h2 { font-size: 12.5pt; margin: 13pt 0 5pt; page-break-after: avoid; }
+h3 { font-size: 11pt; font-style: italic; margin: 10pt 0 4pt; page-break-after: avoid; }
+p { margin: 0 0 7pt; text-align: justify; }
+ul, ol { margin: 0 0 8pt 18pt; padding: 0; }
+li { margin-bottom: 3pt; text-align: justify; }
+table { border-collapse: collapse; width: 100%; font-size: 8.6pt; margin: 4pt 0 12pt; }
+th, td { border: 1px solid #555; padding: 3pt 4pt; vertical-align: top; text-align: left; }
+th { background: #e6e6e6; font-weight: bold; }
+pre { font-family: "Courier New", monospace; font-size: 8pt; background: #f5f5f5; border: 1px solid #bbb; padding: 5pt 6pt; margin: 4pt 0 10pt; white-space: pre-wrap; }
+code { font-family: "Courier New", monospace; font-size: 9pt; }
+.cover-title { font-size: 26pt; font-weight: bold; letter-spacing: 1pt; margin-top: 70pt; text-align: center; }
+.cover-sub { font-size: 13pt; text-align: center; margin: 8pt 0 0; }
+.cover-type { font-size: 15pt; font-weight: bold; text-align: center; margin-top: 36pt; }
+.cover-block { text-align: center; font-size: 11pt; margin-top: 30pt; line-height: 1.6; }
+.center { text-align: center; }
+.small { font-size: 9pt; }
+.note { font-size: 9pt; background: #f7f7f7; border-left: 3px solid #888; padding: 6pt 8pt; margin: 6pt 0 10pt; text-align: justify; }
+.pagebreak { page-break-before: always; }
+.ok { color: #14532d; font-weight: bold; }
+.partial { color: #92400e; font-weight: bold; }
+.plan { color: #7c2d12; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <p class="cover-title">MEDITRACK</p>
+  <p class="cover-sub">A Secure Pharmacy Storefront and Inventory Management System</p>
+  <p class="cover-sub">React &middot; Node.js/Express &middot; MongoDB</p>
+
+  <p class="cover-type">PROJECT REPORT</p>
+  <p class="cover-sub">Submitted in partial fulfilment of the requirements for<br />
+  [Course / Programme Name]</p>
+  <p class="cover-sub">[Department / Institution Name]</p>
+
+  <div class="cover-block">
+    <strong>Submitted by:</strong><br />
+    [Team Member 1, Roll No.]<br />
+    [Team Member 2, Roll No.]<br />
+    [Team Member 3, Roll No.]<br /><br />
+    <strong>Guided by:</strong> [Project Guide Name]<br />
+    <strong>Academic Year:</strong> [Year]
+  </div>
+</div>
+
+<br style="page-break-before: always;" />
+
+<h1>Document Control</h1>
+
+<table>
+  <caption>Table 1 — Document identification and revision history</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:26%">Field</th><th style="background-color:#e9e9e9">Value</th></tr>
+  <tr style="page-break-inside:avoid"><td>Project</td><td>MediTrack — secure e-commerce portal for a healthcare store</td></tr>
+  <tr style="page-break-inside:avoid"><td>Document</td><td>Technical Project Report (design, implementation and verification)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Revision</td><td>2.0 — replaces the draft “MediTrack Project Report v1.0”</td></tr>
+  <tr style="page-break-inside:avoid"><td>Date</td><td>30 October 2026</td></tr>
+  <tr style="page-break-inside:avoid"><td>Requirements baseline</td><td>MediTrack Software Requirements Specification, Version 1.0 (IEEE 830 structure)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Implementation baseline</td><td>Repository <code>meditrack</code>, commits <code>85ee0b2</code> (Phase&nbsp;A), <code>0f84a56</code> (Phase&nbsp;B) and <code>aae2e5c</code>–<code>4e836f2</code> (Phase&nbsp;C)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Reporting standards</td><td>IEEE Std 830-1998 (requirements), IEEE Std 1016-2009 (design description), IEEE Std 829-2008 (test documentation), IEEE citation style</td></tr>
+  <tr style="page-break-inside:avoid"><td>Evidence basis</td><td>Source-code inspection, automated test execution and production build executed on the development machine (Clause&nbsp;7.5)</td></tr>
+</table>
+
+<p><strong>Changes from revision 1.0.</strong> Revision 1.0 was compiled from the SRS plus the repository README and explicitly declared features
+“not evidenced” because the source had not been inspected or executed. This revision is based on a direct reading of the source tree and on
+executed test and build logs, so implementation status is now stated as <em>verified</em>, <em>partial</em> or <em>planned</em> rather than
+inferred. Requirement identifiers have also been renumbered to match SRS&nbsp;v1.0, which supersedes the numbering used in the earlier draft.
+</p>
+
+<br style="page-break-before: always;" />
+
+<h1>Table of Contents</h1>
+
+<table>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:12%">Clause</th><th style="background-color:#e9e9e9">Title</th></tr>
+  <tr style="page-break-inside:avoid"><td>—</td><td>Abstract; Index Terms</td></tr>
+  <tr style="page-break-inside:avoid"><td>1</td><td>Introduction — 1.1 Purpose · 1.2 Scope · 1.3 Definitions, Acronyms and Abbreviations · 1.4 Applicable Documents · 1.5 Report Organisation</td></tr>
+  <tr style="page-break-inside:avoid"><td>2</td><td>Overall Description — 2.1 Product Perspective · 2.2 Product Functions · 2.3 User Classes · 2.4 Operating Environment · 2.5 Constraints · 2.6 Assumptions and Dependencies</td></tr>
+  <tr style="page-break-inside:avoid"><td>3</td><td>Specific Requirements — 3.1 External Interfaces · 3.2 Functional Requirements · 3.3 Non-Functional Requirements · 3.4 Requirements Interpretation and Traceability</td></tr>
+  <tr style="page-break-inside:avoid"><td>4</td><td>System Design Description (IEEE 1016) — 4.1 Stakeholders and Concerns · 4.2 Design Views · 4.3 Design Rationale</td></tr>
+  <tr style="page-break-inside:avoid"><td>5</td><td>Implementation — 5.1 Technology Stack · 5.2 Repository Structure · 5.3 Backend Modules · 5.4 Frontend Modules · 5.5 Security Implementation · 5.6 Configuration and Tooling</td></tr>
+  <tr style="page-break-inside:avoid"><td>6</td><td>Data Design and Interfaces — 6.1 Data Model · 6.2 Relationships · 6.3 API Specification · 6.4 Error Conventions</td></tr>
+  <tr style="page-break-inside:avoid"><td>7</td><td>Verification and Validation (IEEE 829) — 7.1 Strategy · 7.2 Environment · 7.3 Suite Inventory · 7.4 Representative Test Cases · 7.5 Execution Results · 7.6 Build Verification · 7.7 Coverage · 7.8 Threats to Validity</td></tr>
+  <tr style="page-break-inside:avoid"><td>8</td><td>Results and Discussion — 8.1 Results · 8.2 Requirements Alignment · 8.3 Trade-offs · 8.4 Limitations · 8.5 Risks and Mitigations</td></tr>
+  <tr style="page-break-inside:avoid"><td>9</td><td>Conclusion and Future Work</td></tr>
+  <tr style="page-break-inside:avoid"><td>—</td><td>References</td></tr>
+  <tr style="page-break-inside:avoid"><td>A</td><td>Requirements Traceability Matrix</td></tr>
+  <tr style="page-break-inside:avoid"><td>B</td><td>API Reference</td></tr>
+  <tr style="page-break-inside:avoid"><td>C</td><td>Configuration Reference</td></tr>
+  <tr style="page-break-inside:avoid"><td>D</td><td>Test Execution Log</td></tr>
+  <tr style="page-break-inside:avoid"><td>E</td><td>Reproduction Procedure</td></tr>
+</table>
+
+<h2>List of Tables</h2>
+<p class="small">1 Document identification · 2 Product functions · 3 User classes and role mapping · 4 Constraints ·
+5 External interfaces · 6 Functional requirements · 7 Non-functional requirements · 8 Requirements interpretation ·
+9 Stakeholders and concerns · 10 Composition view · 11 Layer responsibilities · 12 Dependency view · 13 Interface view ·
+14 Interaction view · 15 Order states · 16 Design decisions · 17 Technology stack · 18 Repository structure and size ·
+19 Security controls · 20 Collections · 21 Indexes · 22 API groups · 23 Test levels · 24 Test suites and scope ·
+25 Representative test cases · 26 Executed test results · 27 Build verification · 28 Requirement-to-test coverage ·
+29 Measured project indicators · 30 Requirement-by-requirement assessment · 31 Risk register · 32 Future work ·
+33 Traceability matrix · 34 API surface (two parts) · 35 Configuration variables. Numbering follows the order of first
+appearance; Table 34 continues across two page blocks.</p>
+
+<h2>List of Figures</h2>
+<p class="small">Figure 1 Context view · Figure 2 Logical layered view · Figure 3 Checkout and payment interaction ·
+Figure 4 Order and stock state machine. Figures are drawn as text diagrams so they remain readable in print and in version control.</p>
+
+<br style="page-break-before: always;" />
+<br style="page-break-before: always;" />
+
+<h1>Abstract</h1>
+
+<p>MediTrack is a web-based pharmacy storefront combined with a medicine-inventory administration console. It supports catalogue
+browsing with live stock, guest and signed-in shopping carts, prescription-aware checkout (in progress), sandbox payment, order
+fulfilment, role-based back-office operations and an append-only audit trail. The system is implemented as a three-tier application: a
+React single-page frontend, a Node.js/Express REST API and a MongoDB database accessed through Mongoose.</p>
+
+<p>This report documents the project against the MediTrack Software Requirements Specification v1.0, using the requirements, design,
+implementation and verification clauses prescribed by IEEE Std 830-1998, IEEE Std 1016-2009 and IEEE Std 829-2008. Unlike the
+earlier draft of this report, which relied on repository documentation alone, every implementation statement here was checked against
+the source tree, and every quantitative statement was produced by executing the artefact on the development machine.</p>
+
+<p>At the time of writing, the automated backend suite comprises <strong>148 test cases in eleven files, all passing</strong>, and the
+frontend production build completes without warnings. Verified capabilities include atomic stock reservation with rollback
+(FR-2.2, NFR-2.1), server-side pricing computed in paise, a seven-state order lifecycle, card, UPI, <em>net-banking</em> and
+cash-on-delivery sandbox payments (FR-2.3), low-stock replenishment at a configurable water-mark of 10 units up to 100 (FR-1.1),
+an idempotent MediPoints ledger credited only after a confirmed payment (FR-2.4), hashed passwords with short-lived access tokens and
+rotating refresh sessions (NFR-1.2), permission-based authorisation on every protected route (NFR-1.1), and an audit log with no update
+or delete endpoint (NFR-1.3). Four SRS capabilities remain planned and are specified but not implemented: cart-level soft holds with
+automatic release (FR-1.2, FR-1.3), a wishlist (FR-1.5), prescription upload and verification gating (FR-1.4, FR-2.1) and refill
+reminders routed to teleconsultation (FR-2.5). Clause 8.2 gives the item-by-item assessment and Clause 9.2 the plan for closing them.</p>
+
+<h2>Index Terms</h2>
+<p>Pharmacy e-commerce; medicine inventory; stock reservation; concurrency control; MongoDB; Mongoose; React; Express; JSON Web
+Token; role-based access control; refresh-token rotation; sandbox payment gateway; append-only audit log; IEEE Std 830;
+<h1>1. Introduction</h1>
+
+<h2>1.1 Purpose</h2>
+<p>This report describes the requirements, design, implementation and verification of MediTrack, a prototype pharmacy storefront. It is
+intended for the course evaluator, the project guide and the successor team that will continue development, and it serves three
+purposes: to record what the system does and why it is built that way, to demonstrate traceability from each requirement in the SRS to
+code and to an executing test, and to state honestly which requirements are not yet met.</p>
+
+<h2>1.2 Scope</h2>
+<p>The reported system covers the customer storefront (catalogue, cart, checkout, payment, order history, MediPoints; wishlist planned),
+the Inventory Manager console (stock administration, order fulfilment, customers, invitations, audit review, manual replenishment) and
+the platform services behind them (authentication, sessions, authorisation, pricing, inventory consistency, payment adapter, audit
+logging). The SRS item “regional demand pattern detection” is explicitly deferred by the SRS itself and is out of scope here.</p>
+
+<p>Payment processing is restricted to a deterministic sandbox provider; no real money moves and no payment credentials are stored.
+Hardware-dependent barcode/QR and RFID interactions are simulated or deferred (SRS constraints CON-2 and CON-3).</p>
+
+<h2>1.3 Definitions, Acronyms and Abbreviations</h2>
+<table>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:20%">Term</th><th style="background-color:#e9e9e9">Definition as used in this report</th></tr>
+  <tr style="page-break-inside:avoid"><td>API</td><td>Application Programming Interface; here the REST interface served under <code>/api</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Audit log</td><td>Append-only collection (<code>auditlogs</code>) recording who changed what, before/after values and request metadata.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Cart hold (soft hold)</td><td>Short-lived stock reservation created when an item enters a cart (SRS FR-1.2). Planned; see Clause 8.2.</td></tr>
+  <tr style="page-break-inside:avoid"><td>CRM</td><td>Customer Relationship Management; purchase history, MediPoints and refill reminders in MediTrack.</td></tr>
+  <tr style="page-break-inside:avoid"><td>JWT</td><td>JSON Web Token; the short-lived bearer credential used for API calls.</td></tr>
+  <tr style="page-break-inside:avoid"><td>MediPoints</td><td>Loyalty points credited to a customer after a confirmed payment (SRS FR-2.4).</td></tr>
+  <tr style="page-break-inside:avoid"><td>Mongoose</td><td>Object-document mapper for MongoDB supplying schemas, validation and index definitions.</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR</td><td>Non-functional requirement.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Paise</td><td>One hundredth of a rupee; the integer unit used for all money arithmetic to avoid floating-point drift.</td></tr>
+  <tr style="page-break-inside:avoid"><td>RBAC</td><td>Role-Based Access Control; each role maps to explicit permissions in <code>lib/permissions.js</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Rx</td><td>Prescription. Prescription-only medicines require a verified prescription before billing (SRS FR-1.4, FR-2.1).</td></tr>
+  <tr style="page-break-inside:avoid"><td>Sandbox gateway</td><td>Test-mode payment provider with deterministic success/failure rules; default <code>PAYMENT_PROVIDER=mock</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>TTL</td><td>Time To Live; validity window of a token, session, hold or reservation.</td></tr>
+  <tr style="page-break-inside:avoid"><td>SRS</td><td>Software Requirements Specification, MediTrack v1.0.</td></tr>
+</table>
+
+<h2>1.4 Applicable Documents</h2>
+<ul>
+  <li>MediTrack Software Requirements Specification, Version 1.0 (13 pages, prepared per IEEE Std 830-1998 structure) [2].</li>
+  <li>IEEE Std 830-1998, <em>IEEE Recommended Practice for Software Requirements Specifications</em> [1].</li>
+  <li>IEEE Std 1016-2009, <em>IEEE Standard for Information Technology — Software Design Descriptions</em> [3].</li>
+  <li>IEEE Std 829-2008, <em>IEEE Standard for Software and System Test Documentation</em> [4].</li>
+  <li>Alba, E., <em>Writing a Scientific/Technical Report</em>, Universidad de Málaga, 2002 [5].</li>
+  <li>Project source repository and its README [6].</li>
+</ul>
+
+<h2>1.5 Report Organisation</h2>
+<p>Clause 2 gives the overall product description. Clause 3 specifies requirements and their current status. Clause 4 presents the design
+using the views of IEEE Std 1016. Clause 5 describes the implementation. Clause 6 documents the data model and interfaces. Clause 7
+documents verification in the shape recommended by IEEE Std 829 and reports measured results. Clause 8 discusses results, trade-offs,
+limitations and risks. Clause 9 concludes and sets out future work. Appendices A–E hold the traceability matrix, API reference,
+configuration reference, execution log and reproduction procedure.</p>
+
+IEEE Std 1016; IEEE Std 829.</p>
+
+<h1>2. Overall Description</h1>
+
+<h2>2.1 Product Perspective</h2>
+<p>MediTrack is a standalone, three-tier e-commerce system for a single pharmacy. It replaces a manual counter workflow in which stock
+levels and sales records are kept separately. The SRS fixes the architecture: a React client, a Node.js/Express API, a MongoDB
+database and a third-party sandbox payment gateway. The prototype is delivered as an academic system and is not integrated with any
+existing hospital, insurance or regulatory system.</p>
+
+<p>Two architectural properties shape the rest of the design. First, the browser is never trusted with money or stock: prices,
+availability and totals are recomputed on the server on every read and write. Second, privileged operations are separated from
+customer operations at the API boundary rather than in the user interface, so hiding a button is never mistaken for a security control.</p>
+
+<h2>2.2 Product Functions</h2>
+<table>
+  <caption>Table 2 — Product functions and implementation status</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:20%">Function group</th><th style="background-color:#e9e9e9; width:58%">Behaviour</th><th style="background-color:#e9e9e9; width:22%">Status</th></tr>
+  <tr style="page-break-inside:avoid"><td>Catalogue</td><td>Public listing of medicines with name, manufacturing/expiry dates, price, stock and image; expired and zero-stock items are marked unavailable.</td><td class="ok">Implemented</td></tr>
+  <tr style="page-break-inside:avoid"><td>Inventory administration</td><td>Staff/admin create, update and delete medicines, upload an image, mark prescription-only (Rx) items and set a refill cycle.</td><td class="ok">Implemented</td></tr>
+  <tr style="page-break-inside:avoid"><td>Replenishment</td><td>Medicines at or below a configurable watermark (default 10) are restored to a target level (default 100) by a background sweep or an on-demand action; expired stock is excluded.</td><td class="ok">Implemented</td></tr>
+  <tr style="page-break-inside:avoid"><td>Cart</td><td>Guest cart keyed by a signed httpOnly cookie (only its SHA-256 hash stored) and account cart; guest cart merged on sign-in; quantities bounded by live stock.</td><td class="ok">Implemented</td></tr>
+  <tr style="page-break-inside:avoid"><td>Pricing</td><td>Server-side subtotal, 5% tax, delivery fee and free-delivery threshold, all computed in integer paise and snapshotted on the order.</td><td class="ok">Implemented</td></tr>
+  <tr style="page-break-inside:avoid"><td>Checkout and orders</td><td>Authenticated checkout with a validated shipping address; atomic per-line stock reservation with rollback; seven-state order lifecycle; cancellation and expiry release stock exactly once.</td><td class="ok">Implemented</td></tr>
+  <tr style="page-break-inside:avoid"><td>Payments</td><td>Sandbox card (Luhn and expiry checks), UPI, net banking (demo banks) and cash on delivery; declines are retryable; only brand/bank and last four digits are retained.</td><td class="ok">Implemented</td></tr>
+  <tr style="page-break-inside:avoid"><td>MediPoints</td><td>Append-only ledger; 1 point per ₹100 of medicine subtotal, credited once per order after a confirmed payment; balance and history exposed to the customer.</td><td class="ok">Implemented</td></tr>
+  <tr style="page-break-inside:avoid"><td>Accounts and sessions</td><td>Customer self-registration; JWT access tokens (15 min) plus rotating refresh sessions (30 days) with reuse detection; password change revokes all sessions.</td><td class="ok">Implemented</td></tr>
+  <tr style="page-break-inside:avoid"><td>Authorisation</td><td>Customer/staff/admin roles mapped to permissions; every protected route checks a permission, not a UI flag.</td><td class="ok">Implemented</td></tr>
+  <tr style="page-break-inside:avoid"><td>Back office</td><td>Dashboard counters, order administration and fulfilment transitions, customer statistics, invite-based provisioning, audit-log viewer.</td><td class="ok">Implemented</td></tr>
+  <tr style="page-break-inside:avoid"><td>Audit</td><td>Append-only trail for stock, order, role, invite, sign-in, password and replenishment events; no update/delete API exists.</td><td class="ok">Implemented</td></tr>
+  <tr style="page-break-inside:avoid"><td>Cart soft holds</td><td>Reserve stock for a short window when an item is added to the cart, releasing automatically on expiry.</td><td class="partial">Partial — reservation begins at checkout</td></tr>
+  <tr style="page-break-inside:avoid"><td>Prescriptions</td><td>Upload a prescription, staff verification queue, checkout blocked until verified, encrypted storage.</td><td class="plan">Planned (Phase D)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Wishlist</td><td>Independent saved list with move-to-cart.</td><td class="ok">Implemented (Phase B)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Refill reminders</td><td>Reminder derived from purchase history that routes to a teleconsultation request rather than automatic re-dispatch.</td><td class="plan">Planned (Phase E)</td></tr>
+  <tr style="page-break-inside:avoid"><td>QR/barcode</td><td>Simulated scan interaction (no hardware).</td><td class="plan">Planned (Phase F)</td></tr>
+</table>
+
+<h2>2.3 User Classes and Characteristics</h2>
+<p>The SRS names three user classes: Customer, Inventory Manager and Auditor. The implementation realises the first two as the
+<code>customer</code> and <code>staff</code> roles and covers the Auditor through the administrator's read-only audit view, because the
+Auditor is an external reviewer rather than a runtime actor of the store. Table 3 records the mapping, which must stay visible in any
+compliance discussion.</p>
+
+<table>
+  <caption>Table 3 — User classes and their mapping to implemented roles</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:20%">SRS user class</th><th style="background-color:#e9e9e9; width:16%">Implemented role</th><th style="background-color:#e9e9e9">Capabilities</th></tr>
+  <tr style="page-break-inside:avoid"><td>Customer</td><td><code>customer</code></td><td>Browse catalogue; manage cart; sign in; upload prescriptions (planned); place and pay for orders; view own orders and MediPoints.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Inventory Manager</td><td><code>staff</code></td><td>All stock operations, image upload, order fulfilment transitions, customer list, prescription verification (planned), manual replenishment.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Auditor</td><td><code>admin</code> (audit view)</td><td>Read the audit log, roles and invitations. Admin additionally manages users, invites and role changes.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Anonymous visitor</td><td>no account</td><td>Browse catalogue and keep a cookie-identified cart; checkout requires sign-in.</td></tr>
+</table>
+
+<h2>2.4 Operating Environment</h2>
+<p>The runtime environment fixed by SRS Clause 4.7 and confirmed on the development machine is Node.js 18 or later (measured:
+Node.js 22.22.3, npm 10.9.8), MongoDB 6 or later (local instance or Atlas cluster), a modern browser (Chrome, Firefox, Edge or Safari)
+and HTTPS for all client-server traffic in production. The frontend is built with Vite 5 and can be served from any static host; the SRS
+names Netlify for the prototype. Uploaded medicine images are served from the API host under <code>/uploads</code>.</p>
+
+<h2>2.5 Design and Implementation Constraints</h2>
+<table>
+  <caption>Table 4 — Constraints and how they are respected</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:12%">ID</th><th style="background-color:#e9e9e9; width:38%">Constraint (SRS)</th><th style="background-color:#e9e9e9">Implementation response</th></tr>
+  <tr style="page-break-inside:avoid"><td>CON-1</td><td>One academic semester, three-member team</td><td>Tracer-bullet delivery in phases; about 13.5k lines of code including 2.5k lines of tests, so each change stays reviewable.</td></tr>
+  <tr style="page-break-inside:avoid"><td>CON-2</td><td>Sandbox payments only, no real transactions</td><td>Deterministic mock provider (<code>PAYMENT_PROVIDER=mock</code>); the provider adapter accepts a real gateway later without route changes.</td></tr>
+  <tr style="page-break-inside:avoid"><td>CON-3</td><td>QR/RFID simulated, no hardware</td><td>No hardware dependency exists in the code path; a software simulation is planned (Phase F).</td></tr>
+  <tr style="page-break-inside:avoid"><td>—</td><td>Single-instance prototype deployment</td><td>Rate limiting is in-memory; the README records the need for a shared store when scaling out.</td></tr>
+  <tr style="page-break-inside:avoid"><td>—</td><td>No replica-set guarantee (standalone MongoDB)</td><td>Consistency relies on single-document conditional updates rather than multi-document transactions.</td></tr>
+</table>
+
+<h2>2.6 Assumptions and Dependencies</h2>
+<ul>
+  <li>ASSUME-1: standing refill authorisation is not available, so reminders route to assisted teleconsultation (FR-2.5).</li>
+  <li>ASSUME-2: a stable internet connection exists during checkout.</li>
+  <li>ASSUME-3: doctors are available for teleconsultation when a refill is due.</li>
+  <li>The prototype assumes a single pharmacy with one stock pool; batch-level inventory is not modelled (see Clause 8.4).</li>
+  <li>Dependencies: Node.js and npm; MongoDB (local or Atlas); a browser. No third-party service is required, because the payment provider is built in.</li>
+</ul>
+
+<h1>3. Specific Requirements</h1>
+
+<p>Requirements are taken in substance from SRS v1.0 and keep its identifiers and priority labels (High = required for the core
+demonstration, Medium = strengthens the build, Low = stretch). Each row carries the verified implementation status as of this revision,
+so the clause doubles as a compliance statement. Appendix A expands the same information into a full traceability matrix.</p>
+
+<h2>3.1 External Interface Requirements</h2>
+<table>
+  <caption>Table 5 — External interfaces</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:20%">Interface</th><th style="background-color:#e9e9e9; width:46%">Specification (SRS)</th><th style="background-color:#e9e9e9">Implementation</th></tr>
+  <tr style="page-break-inside:avoid"><td>User interface</td><td>React customer interface; Inventory Manager console; cart and wishlist; prescription upload and status; checkout and payment status; purchase history and MediPoints.</td><td>React 18 + React Router 6 SPA with 16 page views (9 storefront, 7 back office) and 9 shared components; prescription upload and wishlist pending.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Hardware interface</td><td>QR/barcode simulated; no RFID or scanner hardware required.</td><td>No hardware dependency; simulation planned (Phase F).</td></tr>
+  <tr style="page-break-inside:avoid"><td>Software interface</td><td>MongoDB 6+ for persistence; sandbox payment provider such as Razorpay or Stripe.</td><td>Mongoose 7 over MongoDB; a provider adapter (<code>lib/paymentGateway.js</code>) with a built-in mock provider implementing the same contract a real gateway would.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Communication interface</td><td>HTTPS for all client-server communication; JWT bearer tokens for authenticated requests.</td><td>Helmet security headers, HTTPS redirect and <code>trust proxy</code> in production; <code>Authorization: Bearer &lt;token&gt;</code>; <code>Secure</code>, <code>httpOnly</code>, <code>SameSite=Lax</code> cookies.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Data interface</td><td>Users, medicines/inventory, cart/wishlist, prescriptions, orders, payments, audit logs, MediPoints ledger.</td><td>Nine collections implemented; prescriptions are Phase D.</td></tr>
+</table>
+
+<h2>3.2 Functional Requirements</h2>
+<table>
+  <caption>Table 6 — Functional requirements, priority and verified status</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:7%">ID</th><th style="background-color:#e9e9e9; width:7%">Prio.</th><th style="background-color:#e9e9e9; width:36%">Requirement (SRS)</th><th style="background-color:#e9e9e9; width:12%">Status</th><th style="background-color:#e9e9e9">Implementation / test evidence</th></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.1</td><td>High</td><td>Replenish inventory when stock reaches the watermark of 10 units, restoring it to 100 units.</td><td class="ok">Implemented</td><td><code>lib/inventory.js</code>; startup and 60 s sweeps in <code>server.js</code>; <code>POST /api/admin/inventory/replenish</code>; <code>tests/inventory.test.js</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.2</td><td>High</td><td>Create a short-lived soft hold when an item is added to the cart; stock check and reservation performed atomically.</td><td class="ok">Implemented</td><td><code>lib/cartHolds.js</code> (<code>acquireHold</code>) called from <code>setLineQuantity()</code> in <code>lib/cartSession.js</code>; one conditional update moves units from <code>stock</code> to <code>held</code> under <code>CART_HOLD_MINUTES</code> (15); <code>tests/cart-holds.test.js</code>, <code>tests/cart-holds-api.test.js</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.3</td><td>High</td><td>Automatically release an expired soft hold and make the inventory available again.</td><td class="ok">Implemented</td><td><code>releaseExpiredHolds()</code> runs on a <code>CART_HOLD_SWEEP_INTERVAL_MS</code> timer, on every cart read (<code>loadLiveCart</code>) and on removal/clear/merge; the line stays in the cart with a refresh action; <code>tests/cart-holds.test.js</code>, <code>tests/cart-holds-api.test.js</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.4</td><td>High</td><td>Identify prescription-only medicines in the cart and prevent billing until the prescription is verified.</td><td class="plan">Planned</td><td>Data foundation only: <code>Medicine.prescriptionRequired</code> with a staff-editable flag and an Rx badge in the console. Checkout gate is Phase D.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.5</td><td>Medium</td><td>Maintain a wishlist independently of the cart; allow moving items from wishlist to cart.</td><td class="ok">Implemented</td><td><code>models/Wishlist.js</code>, <code>lib/wishlist.js</code>, <code>routes/wishlist.js</code>, <code>pages/Wishlist.jsx</code>, <code>context/WishlistContext.jsx</code>; move-to-cart reuses <code>addItemToCart()</code>; <code>tests/wishlist.test.js</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.6</td><td>High</td><td>Allow new customers to create an account using name, e-mail address and password.</td><td class="ok">Implemented</td><td><code>routes/auth.js</code> — public registration is customer-only, privileged roles require an invite; <code>tests/api.test.js</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.7</td><td>High</td><td>Allow registered customers to log in with their registered e-mail and password.</td><td class="ok">Implemented</td><td><code>routes/auth.js</code>, <code>lib/sessions.js</code>; <code>tests/api.test.js</code>, <code>tests/sessions.test.js</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.1</td><td>High</td><td>Block checkout for prescription-only medicines until the uploaded prescription has been verified.</td><td class="plan">Planned</td><td>Phase D: verification queue, checkout gate and <code>order.prescription</code> reference.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.2</td><td>High</td><td>If payment fails or is interrupted, leave inventory and order state unchanged; no partial decrement.</td><td class="ok">Implemented</td><td>Units are reserved once, when the cart takes its hold; a declined payment only updates payment fields, and a failed multi-line checkout rolls every earlier counter move back (a converted hold becomes a hold again). <code>tests/cart-orders.test.js</code>, <code>tests/cart-holds-api.test.js</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.3</td><td>High</td><td>Support UPI, debit card, credit card and net banking through the sandbox gateway.</td><td class="ok">Implemented</td><td><code>lib/providers/mockPayment.js</code>: card (debit/credit, Luhn + expiry + CVV), UPI, net banking (five demo banks plus a declining bank), cash on delivery. <code>tests/cart-orders.test.js</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.4</td><td>Medium</td><td>Credit MediPoints only after successful confirmation of payment.</td><td class="ok">Implemented</td><td><code>lib/medipoints.js</code>, <code>models/MediPointsEntry.js</code>, <code>GET /api/me/medipoints</code>; one ledger entry per order enforced by a unique index; <code>tests/medipoints.test.js</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.5</td><td>Medium</td><td>Route refill reminders to assisted teleconsultation booking rather than automatic re-dispatch.</td><td class="plan">Planned</td><td>Data foundation only: <code>Medicine.refillDays</code> (1–365, default 30). Reminder and teleconsultation request are Phase E.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.6</td><td>High</td><td>Maintain an immutable purchase history supporting reminders and repeat purchase.</td><td class="ok">Implemented</td><td>Orders are snapshots (name, image, unit price, line total, totals, address) and no route updates or deletes them: <code>models/Order.js</code>. A schema-level immutability guard is scheduled for Phase F.</td></tr>
+</table>
+
+<h2>3.3 Non-Functional Requirements</h2>
+<table>
+  <caption>Table 7 — Non-functional requirements and verified status</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:8%">ID</th><th style="background-color:#e9e9e9; width:9%">Prio.</th><th style="background-color:#e9e9e9; width:36%">Requirement (SRS)</th><th style="background-color:#e9e9e9; width:12%">Status</th><th style="background-color:#e9e9e9">Implementation / evidence</th></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-1.1</td><td>High</td><td>The server shall enforce role-based access control for every protected request.</td><td class="ok">Implemented</td><td>Route-level <code>requireAuth</code> / <code>requireRole</code> / <code>requirePermission</code>; roles map to permissions in <code>lib/permissions.js</code>; the SPA receives the same list so it never hard-codes role logic. 401/403 paths are asserted in <code>tests/api.test.js</code>, <code>tests/admin.test.js</code> and <code>tests/inventory.test.js</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-1.2</td><td>High</td><td>Use bcrypt for password hashing and JWT-based authentication with session expiry.</td><td class="ok">Implemented</td><td>bcryptjs with ten rounds and <code>select:false</code> on the hash; 15-minute access tokens; 30-day rotating refresh sessions stored only as SHA-256 hashes; <code>tokenVersion</code> invalidates outstanding tokens on password change or “sign out everywhere”; <code>tests/sessions.test.js</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-1.3</td><td>High</td><td>The audit log shall be append-only; no update or delete operations for audit records.</td><td class="ok">Implemented</td><td><code>lib/audit.js</code> exposes <code>recordAudit</code> and a paginated read; no route updates or deletes <code>auditlogs</code>. A database-level write guard is scheduled for Phase F.</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-1.4</td><td>High</td><td>Payment tokens and prescription data shall be encrypted or tokenised at rest.</td><td class="partial">Partial</td><td>No card number or CVV is persisted: only brand, last four digits and a generated transaction id. Prescription encryption is Phase D (AES-256-GCM with a key from the environment, stored outside the static upload directory).</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-2.1</td><td>High</td><td>Inventory reservation shall be atomic to prevent lost updates and overselling.</td><td class="ok">Implemented</td><td>One conditional update per line: <code>acquireHold</code> moves units <code>stock → held</code>, checkout discharges <code>held</code> with <code>convertHoldToSale</code>, and a failed checkout compensates with <code>restoreHold</code>. Atomic status transitions make every stock restore single-shot. <code>tests/cart-holds.test.js</code>, <code>tests/cart-holds-api.test.js</code>, <code>tests/cart-orders.test.js</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-2.2</td><td>Medium</td><td>The checkout interface shall display the remaining stock-hold time and prescription verification status.</td><td class="partial">Partial</td><td><code>/cart</code> shows a live per-line hold countdown with a refresh action and <code>/checkout</code> shows the cart's earliest deadline (<code>HoldCountdown.jsx</code>); the payment page shows the order reservation window. Prescription verification status arrives with Phase D.</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-2.3</td><td>Low</td><td>Designed with a 24×7 operational goal; production uptime guarantees out of scope.</td><td class="partial">Goal</td><td>Stateless API, idempotent payment and replenishment operations and graceful shutdown support the goal; no monitoring, backup or SLA evidence exists for an academic prototype.</td></tr>
+</table>
+
+<h2>3.4 Requirements Interpretation and Traceability</h2>
+
+<p><strong>Summary.</strong> Of the thirteen functional requirements, nine are implemented and verified by tests, one is partially
+implemented and three are planned. Of the seven non-functional requirements, four are implemented, two are partial and one is a stated
+goal. No requirement has been dropped or silently re-scoped.</p>
+
+<table>
+  <caption>Table 8 — Areas where the SRS needs an explicit reading</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:16%">Requirement</th><th style="background-color:#e9e9e9; width:44%">Ambiguity or mismatch</th><th style="background-color:#e9e9e9">Reading adopted in this build</th></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.1</td><td>The SRS does not say <em>when</em> replenishment runs, only that it must happen at the watermark.</td><td>Implemented as a supplier-delivery simulation: a sweep (startup plus interval) and an explicit Inventory Manager action. It is deliberately not inline in checkout, so a sale never changes stock it did not reserve. Watermark and target are configuration, not constants.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.2 / FR-1.3</td><td>The SRS says “short-lived soft hold” without a duration, and the earlier report draft assumed a ten-minute figure that the SRS v1.0 does not state.</td><td>The mechanism is now a cart-level hold of <code>CART_HOLD_MINUTES</code> (default 15) on a <code>Medicine.held</code> counter with a sweeper, which is the literal reading of FR-1.2/1.3; the order-level <code>ORDER_RESERVATION_MINUTES</code> (default 30) still covers the payment window.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.3</td><td>“Debit card” and “credit card” are listed separately.</td><td>One <code>card</code> method serves both; the provider validates the number, expiry and CVV identically and stores only the brand and last four digits.</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.6</td><td>“Immutable” is not defined at storage level.</td><td>Immutability is achieved by snapshotting commercial data into the order and by exposing no mutating route. A write-guard in the model is planned as defence in depth.</td></tr>
+  <tr style="page-break-inside:avoid"><td>User classes</td><td>The SRS names an Auditor; the code base has customer/staff/admin.</td><td>The Auditor is served by the administrator's read-only audit view. A dedicated <code>auditor</code> role with <code>audit:read</code> only is a low-cost future addition.</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-2.3</td><td>A 24×7 goal cannot be demonstrated by a single-host prototype.</td><td>Recorded as a design goal with the operational work listed in Clause 9.2; no uptime claim is made.</td></tr>
+</table>
+
+<h1>4. System Design Description</h1>
+
+<p>This clause follows the design-view structure of IEEE Std 1016-2009. Each view addresses one or more stakeholder concerns; together
+the views constitute the design description. Implementation detail is kept for Clause 5 so that the design remains readable on its own.</p>
+
+<h2>4.1 Design Stakeholders and Concerns</h2>
+<table>
+  <caption>Table 9 — Stakeholders, concerns and the views that address them</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:24%">Stakeholder</th><th style="background-color:#e9e9e9; width:44%">Concern</th><th style="background-color:#e9e9e9">Addressed in</th></tr>
+  <tr style="page-break-inside:avoid"><td>Course evaluator / guide</td><td>Requirements coverage and evidence of engineering discipline</td><td>Clauses 3, 7, 8; Appendices A, D</td></tr>
+  <tr style="page-break-inside:avoid"><td>Customer</td><td>Accurate availability, predictable pricing, safe checkout, visible order state</td><td>4.2.3, 4.2.7, 4.2.8, 6.3</td></tr>
+  <tr style="page-break-inside:avoid"><td>Inventory Manager (staff)</td><td>Correct stock, low-stock visibility, order fulfilment, traceable actions</td><td>4.2.2, 4.2.9, 4.2.8</td></tr>
+  <tr style="page-break-inside:avoid"><td>Administrator</td><td>Privilege separation, provisioning of privileged accounts, auditability</td><td>4.2.4, 4.2.6, 5.5</td></tr>
+  <tr style="page-break-inside:avoid"><td>Successor development team</td><td>Modularity, test coverage, documented conventions</td><td>4.2.2, 5, 7, Appendix E</td></tr>
+  <tr style="page-break-inside:avoid"><td>Auditor (predecessor group)</td><td>Evidence that privileged actions leave a non-repudiable record</td><td>4.2.6, 5.5, 6.1</td></tr>
+</table>
+
+<h2>4.2 Design Views</h2>
+
+<h3>4.2.1 Context view</h3>
+<p>MediTrack has four external actors and two external systems. The actors are the anonymous visitor, the customer, the Inventory
+Manager and the administrator. The external systems are the MongoDB deployment and the payment gateway, which is reachable only
+through the provider adapter.</p>
+
+<pre>Figure 1 — Context view
+
+   Anonymous visitor ─┐
+   Customer ──────────┤        ┌───────────────────────────────┐        ┌──────────────────┐
+   Inventory Manager ─┼──────► │  MediTrack                    │ ─────► │ Payment gateway  │
+   Administrator ─────┘  HTTPS │  React SPA + Express REST API │        │ (sandbox: mock)  │
+          │                    └───────────────┬───────────────┘        └──────────────────┘
+          │ browser cookies                    │ Mongoose ODM
+          └────────────────────────────────────┴──────► MongoDB (meditrack database)</pre>
+
+<h3>4.2.2 Composition view</h3>
+<p>The API is decomposed into routers, shared libraries, models and middleware. The rule applied throughout is that a route validates
+input and authorises the caller, a library implements business rules, and a model declares data shape and indexes. Nothing in a route
+computes money or stock directly.</p>
+
+<table>
+  <caption>Table 10 — Composition view: components and responsibilities</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:22%">Component</th><th style="background-color:#e9e9e9; width:44%">Responsibility</th><th style="background-color:#e9e9e9">Key files</th></tr>
+  <tr style="page-break-inside:avoid"><td>API entry point</td><td>Security headers, CORS, cookies, route mounting, central error normalisation, startup and shutdown, background sweep</td><td><code>server.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>Routers (7)</td><td>Authentication, back-office auth, back-office management, medicines, cart, orders, customer account</td><td><code>routes/</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>Catalogue domain</td><td>Medicine schema, availability rules, replenishment watermark logic</td><td><code>models/Medicine.js</code>, <code>lib/availability.js</code>, <code>lib/inventory.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>Cart domain</td><td>Server-side cart documents, signed cookie identity, guest merge, live serialisation</td><td><code>models/Cart.js</code>, <code>lib/cartSession.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>Order domain</td><td>Cart validation, atomic reservation and rollback, expiry, order snapshots, totals</td><td><code>models/Order.js</code>, <code>lib/orderService.js</code>, <code>lib/pricing.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>Payment domain</td><td>Provider registry and charge contract; deterministic sandbox rules</td><td><code>lib/paymentGateway.js</code>, <code>lib/providers/mockPayment.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>Loyalty domain</td><td>Earning rule, idempotent credit, balance aggregation</td><td><code>models/MediPointsEntry.js</code>, <code>lib/medipoints.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>Identity domain</td><td>Accounts, bcrypt hashing, access tokens, refresh sessions, invitations</td><td><code>models/User.js</code>, <code>models/Session.js</code>, <code>models/AdminInvite.js</code>, <code>lib/sessions.js</code>, <code>lib/invites.js</code>, <code>middleware/auth.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>Governance</td><td>Audit recording and reading, role-to-permission map, rate limits, request guards</td><td><code>lib/audit.js</code>, <code>lib/permissions.js</code>, <code>middleware/rateLimit.js</code>, <code>middleware/requestGuards.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>Storefront SPA</td><td>Routing, auth and cart contexts, pages and shared components, fetch wrapper with silent token refresh</td><td><code>frontend/src/</code></td></tr>
+</table>
+
+<h3>4.2.3 Logical view</h3>
+<p>Figure 2 shows the layering. The frontend holds no business truth: it renders what the API returns and re-fetches after every
+mutation. The API layer is the only place where prices, availability and permissions are decided. Persistence is reached exclusively
+through Mongoose models, which also carry the indexes the concurrency rules depend on.</p>
+
+<pre>Figure 2 — Logical layered view
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Presentation   React 18 SPA (Vite)                                          │
+│                AuthContext · CartContext · pages · components               │
+│                apiFetch(): in-memory JWT, credentials:'include', refetch     │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Interface      Express routers: /api/auth · /api/admin/auth · /api/admin     │
+│                /api/medicines · /api/cart · /api/orders · /api/me            │
+│                middleware: requireAuth · requirePermission · rateLimit      │
+│                            rejectFormBody · Helmet · CORS                   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Domain         pricing · availability · orderService · inventory            │
+│                medipoints · cartSession · sessions · invites · audit        │
+│                paymentGateway → providers/mockPayment                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Persistence    Mongoose models: User · Medicine · Cart · Order · Session    │
+│                AdminInvite · MediPointsEntry · AuditLog                     │
+│                MongoDB indexes: unique, partial, TTL                        │
+└──────────────────────────────────────────────────────────────────────────────┘</pre>
+
+<table>
+  <caption>Table 11 — Layer responsibilities and prohibitions</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:18%">Layer</th><th style="background-color:#e9e9e9; width:41%">May do</th><th style="background-color:#e9e9e9">Must not do</th></tr>
+  <tr style="page-break-inside:avoid"><td>Presentation</td><td>Render, validate for usability, hold the access token in memory, call the API</td><td>Decide prices, stock, permissions or order state; persist tokens in localStorage</td></tr>
+  <tr style="page-break-inside:avoid"><td>Interface</td><td>Parse and validate input, authorise, translate errors to status codes</td><td>Contain business rules that are also needed by another route</td></tr>
+  <tr style="page-break-inside:avoid"><td>Domain</td><td>Own invariants, atomicity, money arithmetic, provider selection</td><td>Depend on Express request/response objects (only an optional audit context is passed)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Persistence</td><td>Declare schema, validation, indexes, serialisation to <code>id</code></td><td>Hold secrets in plaintext (password and token hashes only, <code>select:false</code>)</td></tr>
+</table>
+
+<h3>4.2.4 Dependency view</h3>
+<p>Dependencies point downwards only. Routers may use domain libraries and models; domain libraries may use models and other domain
+libraries; models depend on nothing but Mongoose, plus the permission map used to serialise a user. The payment adapter is the single seam
+to an external provider, and it is inverted: the route knows only <code>charge()</code>.</p>
+
+<table>
+  <caption>Table 12 — Dependency view (selected edges)</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:32%">From</th><th style="background-color:#e9e9e9; width:36%">To</th><th style="background-color:#e9e9e9">Purpose</th></tr>
+  <tr style="page-break-inside:avoid"><td><code>routes/orders.js</code></td><td><code>lib/orderService.js</code>, <code>lib/paymentGateway.js</code>, <code>lib/medipoints.js</code></td><td>Create orders, charge, credit points</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>lib/orderService.js</code></td><td><code>models/Order.js</code>, <code>models/Medicine.js</code>, <code>lib/pricing.js</code>, <code>lib/paymentGateway.js</code></td><td>Snapshot, reserve, price, record provider</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>lib/inventory.js</code></td><td><code>models/Medicine.js</code>, <code>lib/audit.js</code>, <code>lib/availability.js</code></td><td>Watermark sweep and audit</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>lib/medipoints.js</code></td><td><code>models/MediPointsEntry.js</code>, <code>lib/pricing.js</code></td><td>Earning rule and idempotent credit</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>middleware/auth.js</code></td><td><code>models/User.js</code>, <code>lib/permissions.js</code></td><td>Token verification and permission checks</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>server.js</code></td><td>all routers, <code>lib/cartSession.js</code>, <code>lib/migrations.js</code>, <code>lib/inventory.js</code></td><td>Composition root</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>frontend/src/lib/api.js</code></td><td>REST API</td><td>Single fetch wrapper, token refresh, grouped API objects</td></tr>
+</table>
+
+<h3>4.2.5 Information view</h3>
+<p>The persistent information view is specified in Clause 6.1 (collections, fields and indexes) and Clause 6.2 (relationships). The
+design rule is that each collection owns exactly one entity, references are stored as ObjectIds with declared indexes, and commercial
+values that must not change (unit price, totals, address) are copied into the order at checkout rather than read through the reference.</p>
+
+<h3>4.2.6 Interface view</h3>
+<table>
+  <caption>Table 13 — Interface view: access rules per interface</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:26%">Interface</th><th style="background-color:#e9e9e9; width:22%">Authentication</th><th style="background-color:#e9e9e9">Authorisation rule</th></tr>
+  <tr style="page-break-inside:avoid"><td><code>POST /api/auth/register</code>, <code>/api/auth/login</code></td><td>None</td><td>Public; role forced to <code>customer</code>; rate limited; JSON only</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>GET /api/medicines</code>, <code>/api/medicines/:id</code></td><td>None</td><td>Public read; response exposes only catalogue fields</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>POST|PATCH|DELETE /api/medicines…</code></td><td>Bearer JWT</td><td><code>catalog:write</code> (staff, admin)</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>/api/cart…</code></td><td>Optional bearer JWT</td><td>Guest cart via signed cookie; account cart when signed in; merge requires a token</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>/api/orders…</code></td><td>Bearer JWT</td><td>Owner only; foreign order ids return 404 rather than 403 to avoid leaking existence</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>/api/me/medipoints</code></td><td>Bearer JWT</td><td>Self only</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>/api/admin…</code></td><td>Bearer JWT</td><td><code>orders:read:all</code> for operational views; <code>users:manage</code>, <code>invites:manage</code>, <code>audit:read</code> for administration</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>/api/admin/auth/*</code></td><td>None</td><td>Public back-office login (customers rejected with 403) and invite acceptance with a single-use token</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>/uploads/*</code></td><td>None</td><td>Static medicine images only; filenames are generated, never taken from the client</td></tr>
+</table>
+
+<h3>4.2.7 Interaction view</h3>
+<pre>Figure 3 — Checkout and payment interaction
+
+Customer        SPA                  /api/cart        /api/orders          MongoDB             Gateway
+   │             │                     │                 │                   │                  │
+   │ add item ──► │ POST /cart/items ──► │ validate sellability, upsert cart │                  │
+   │             │                     │ ────────────────► carts           │                  │
+   │ checkout ─► │ POST /orders ──────────────────────► │ read cart         │                  │
+   │             │                     │                 │ validate expiry/stock ──► medicines │
+   │             │                     │                 │ per line: conditional $inc ──►      │
+   │             │                     │                 │ (rollback all on failure)           │
+   │             │                     │                 │ insert order snapshot ──► orders    │
+   │             │                     │                 │ clear cart ───────────► carts       │
+   │ pay ──────► │ POST /orders/:id/pay ───────────────► │ idempotency + expiry check          │
+   │             │                     │                 │ charge() ────────────────────────►  │
+   │             │                     │                 │ update payment/status ──► orders    │
+   │             │                     │                 │ credit points once ────► medipoints │
+   │ ◄── 200 / 402 { error, order } ────┴─────────────────┘</pre>
+
+<table>
+  <caption>Table 14 — Interaction view: principal use cases</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:22%">Use case</th><th style="background-color:#e9e9e9; width:24%">Entry point</th><th style="background-color:#e9e9e9">Behaviour and failure handling</th></tr>
+  <tr style="page-break-inside:avoid"><td>Browse catalogue</td><td><code>GET /api/medicines</code></td><td>Newest first; expired and zero-stock rows are returned but flagged unavailable by the cart layer.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Manage cart</td><td><code>/api/cart…</code></td><td>Guest or account cart; quantity bounded by live stock and a per-line maximum; 409 on expiry or insufficient stock; 415 for form-encoded bodies.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Place order</td><td><code>POST /api/orders</code></td><td>Validates the whole cart before touching stock; reserves line by line; rolls back on the first failure; snapshots prices; clears the cart; sets an expiry deadline.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Pay order</td><td><code>POST /api/orders/:id/pay</code></td><td>Rejects unsupported methods (400), expired orders (409) and non-payable states (409); returns 402 with the order on decline; 200 without re-charging when already paid.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Cancel / expire</td><td><code>POST /api/orders/:id/cancel</code></td><td>Atomic status transition claims the order, then restores stock; a second call is a no-op returning the cancelled order.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Fulfil order</td><td><code>PATCH /api/admin/orders/:id/status</code></td><td>Only forward transitions from a fixed map (<code>paid→processing→shipped→delivered</code>; <code>pending_payment→cancelled</code>); each change is audited.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Restock</td><td><code>POST /api/admin/inventory/replenish</code></td><td>Refills every unexpired medicine at or below the watermark, reports each change and audits it.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Provision staff</td><td><code>POST /api/admin/invites</code></td><td>Single-use token returned once, only its SHA-256 hash stored, expires after 72 hours by default; acceptance creates the account with the invited role.</td></tr>
+</table>
+
+<h3>4.2.8 State dynamics view</h3>
+<pre>Figure 4 — Order and stock state machine
+
+                    create (stock reserved)
+        ┌─────────┐ ─────────────────────────► ┌──────────────────┐
+        │  cart   │                              │ pending_payment  │
+        └─────────┘ ◄── cart cleared ───────────└───┬──────┬───────┘
+                                                     │      │
+                              card/UPI/net banking ──┘      └── cash on delivery
+                                        │                          │
+                                        ▼                          ▼
+                                   ┌────────┐                ┌────────────┐
+                                   │  paid  │                │ processing │
+                                   └───┬────┘                └─────┬──────┘
+                        staff: ▸processing │                       │ shipped
+                                           ▼                       ▼
+                                     ┌──────────┐  shipped    ┌───────────┐  delivered
+                                     │processing│ ──────────► │  shipped  │ ─────────► delivered
+                                     └──────────┘             └───────────┘
+   Stock:  reserved at create → held while pending → released only on cancelled/expired
+   Points: credited once, when payment.status becomes 'succeeded'</pre>
+
+<table>
+  <caption>Table 15 — Order states, allowed transitions and effects</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:16%">State</th><th style="background-color:#e9e9e9; width:22%">Meaning</th><th style="background-color:#e9e9e9; width:27%">Allowed next states</th><th style="background-color:#e9e9e9">Stock / points effect</th></tr>
+  <tr style="page-break-inside:avoid"><td><code>pending_payment</code></td><td>Created, stock reserved, awaiting payment</td><td><code>paid</code>, <code>processing</code> (COD), <code>cancelled</code>, <code>expired</code></td><td>Stock held until the deadline; no points</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>paid</code></td><td>Card / UPI / net banking captured</td><td><code>processing</code></td><td>Stock stays decremented; points credited once</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>processing</code></td><td>Confirmed, cash to be collected on delivery</td><td><code>shipped</code></td><td>Payment still pending; no points until collected</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>shipped</code></td><td>Dispatched</td><td><code>delivered</code></td><td>No stock change</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>delivered</code></td><td>Fulfilled</td><td>—</td><td>No stock change</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>cancelled</code></td><td>Cancelled before payment</td><td>—</td><td>Stock restored exactly once</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>expired</code></td><td>Reservation lapsed</td><td>—</td><td>Stock restored exactly once</td></tr>
+</table>
+
+<h3>4.2.9 Algorithm view</h3>
+<p>Three algorithms carry the correctness of the system. They are written as single-document conditional updates, because the
+prototype must also run on a standalone MongoDB instance without multi-document transactions.</p>
+
+<p><strong>A — atomic hold, conversion and rollback (FR-1.2, FR-1.3, NFR-2.1).</strong> The condition and the counter move travel in
+one database operation, so two carts can never reserve the same unit and a sale is never counted twice.</p>
+
+<pre>// FR-1.2 — taking a hold (lib/cartHolds.js)
+held = medicine.findOneAndUpdate(
+    { _id: id, stock: { $gte: quantity } },          // stock is what a new customer can buy
+    { $inc: { stock: -quantity, held: +quantity } }, // condition re-evaluated atomically
+    { new: true })
+if not held: throw 409 "…only N unit(s) left in stock"
+cart line: quantity, holdExpiresAt = now + CART_HOLD_MINUTES
+
+// FR-1.3 — releasing a lapsed hold (sweeper, cart read, removal, clear, merge)
+if cart.findOneAndUpdate(                            // clearing the marker is the claim
+      { _id: cartId, items: { $elemMatch: { medicine: id, holdExpiresAt: { $lte: now } } } },
+      { $set: { 'items.$[line].holdExpiresAt': null } },
+      { arrayFilters: [...] }):
+    medicine.updateOne({ _id: id, held: { $gte: quantity } },
+                       { $inc: { held: -quantity, stock: +quantity } })
+
+// checkout — the hold becomes the sale
+sold = medicine.findOneAndUpdate({ _id: id, held: { $gte: quantity } },
+                                 { $inc: { held: -quantity } })
+if not sold:                                          // hold lapsed or was spent
+    reserve from stock instead (conditional decrement)
+if any line fails:
+    undo every earlier line: restoreHold() puts units back into held,
+    a stock reservation is incremented back onto the shelf
+
+totals  = computeTotals(lines)                        // integer paise, server-side only
+order   = insert snapshot + expiry deadline
+cart.items = []</pre>
+
+<p><strong>B — watermark replenishment (FR-1.1).</strong> The sweep is idempotent: after a row is refilled it no longer satisfies the
+condition, so a second concurrent sweep matches nothing.</p>
+
+<pre>candidates = medicines.where(stock &lt;= LOW_STOCK_WATERMARK, exp &gt;= today)
+for each candidate:
+    updated = medicine.findOneAndUpdate(
+        { _id: candidate._id, stock: { $lte: LOW_STOCK_WATERMARK } },
+        { $set: { stock: REPLENISH_TO } },
+        { new: true })
+    if not updated: continue                          // another sweep won the race
+    audit("medicine.replenish", before={stock}, after={stock})</pre>
+
+<p><strong>C — MediPoints credit (FR-2.4).</strong> Eligibility is decided from the payment state, and the database enforces
+“once per order”.</p>
+
+<pre>if order.payment.status != 'succeeded': return null    // declined, cancelled or COD unpaid
+points = floor(subtotal_in_paise / 10000) * MEDIPOINTS_PER_100
+try: insert ledgerEntry { user, order, type:'earn', points }
+catch duplicate-key on order: return null              // already credited — harmless replay</pre>
+
+<h3>4.2.10 Resource view</h3>
+<ul>
+  <li><strong>Process model.</strong> One Node.js process serving HTTP and one unref'd interval timer for replenishment; no worker
+      queue, no external scheduler.</li>
+  <li><strong>Memory.</strong> Bounded by request size (JSON body default limits, 5 MB upload limit) and the in-memory rate-limit store,
+      which grows with the number of distinct IP/e-mail pairs seen inside the window.</li>
+  <li><strong>Storage.</strong> MongoDB holds documents and indexes; uploaded images are files under <code>backend/uploads</code> and are
+      deleted when the medicine is removed or its image replaced.</li>
+  <li><strong>Timers and TTL.</strong> Guest carts carry a TTL index (30 days); orders carry an application-level deadline because stock
+      must be restored, not merely deleted.</li>
+  <li><strong>Scaling limits.</strong> Rate limiting and scheduled sweeps assume a single instance. Multiple instances would need a shared
+      limiter store and an elected sweeper.</li>
+</ul>
+
+<h2>4.3 Design Rationale</h2>
+<p>Table 16 records the decisions that materially shape the system, the alternatives that were rejected, and the consequence the
+successor team inherits. It is written as a lightweight decision record so a future reviewer can see <em>why</em>, not only
+<em>what</em>.</p>
+
+<table>
+  <caption>Table 16 — Design decisions and rejected alternatives</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:21%">Decision</th><th style="background-color:#e9e9e9; width:24%">Alternative rejected</th><th style="background-color:#e9e9e9">Rationale and consequence</th></tr>
+  <tr style="page-break-inside:avoid"><td>Cart lives on the server; the cookie carries only a random token whose SHA-256 hash is stored</td><td>Cart in localStorage or in a readable cookie</td><td>XSS cannot read the cart, the cookie cannot be forged (HMAC), and prices never come from the browser. Consequence: one database round trip per cart read, acceptable at this scale.</td></tr>
+  <tr style="page-break-inside:avoid"><td>All money arithmetic in integer paise</td><td>Floating-point rupees</td><td>Eliminates rounding drift between subtotal, tax and total. Consequence: conversions at the boundary; rates and rounding are recorded on the order so old bills stay explainable.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Single-document conditional updates for stock and status</td><td>Multi-document transactions</td><td>Works on a standalone MongoDB (the common local setup) and still prevents lost updates. Consequence: multi-line reservations are compensated by application-level rollback instead of a transaction.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Commercial data copied into the order (snapshot)</td><td>Reading prices through the medicine reference at display time</td><td>FR-2.6: a later price change or deletion cannot rewrite history. Consequence: the order document is larger and intentionally denormalised.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Payment provider adapter with a built-in simulator</td><td>Calling one vendor SDK directly from the route</td><td>CON-2 keeps payments in sandbox; adding Razorpay or Stripe later means one new provider file and one environment variable. Consequence: the adapter contract must stay small (<code>charge</code> plus an optional redirect result).</td></tr>
+  <tr style="page-break-inside:avoid"><td>Permissions, not role strings, enforced in routes</td><td>Scattered <code>role === 'admin'</code> checks</td><td>One map decides what a role may do, and the same list is sent to the SPA so the UI never invents its own rules. Consequence: adding a capability means editing one file.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Privileged accounts only by invitation; public registration is customer-only</td><td>An administrator sign-up code in configuration</td><td>Removes a shared secret from configuration and makes provisioning traceable. Consequence: the first administrator must be seeded by script.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Short access token in memory + rotating refresh cookie</td><td>A long-lived JWT in localStorage</td><td>NFR-1.2: a stolen access token expires quickly, and reuse of a rotated refresh token revokes the account's sessions. Consequence: more moving parts, covered by <code>tests/sessions.test.js</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>MediPoints as an append-only ledger with a unique index on <code>order</code></td><td>A mutable <code>points</code> field on the user</td><td>Auditable earning history and database-enforced idempotency under retries. Consequence: the balance is an aggregation rather than a stored number.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Replenishment as a scheduled sweep plus an explicit action</td><td>Refilling inside the checkout code path</td><td>Keeps a sale honest: it returns exactly the stock it reserved. Consequence: stock can sit at the watermark until the next sweep, which is the intended supplier-delivery semantics.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Expired medicines excluded from replenishment</td><td>Refilling every low row</td><td>Refilling unsellable stock hides the problem from the Inventory Manager and inflates inventory value. Consequence: expired rows stay visible and flagged until removed.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Audit writes never throw</td><td>Failing the business action when logging fails</td><td>A logging fault must not turn a committed sale into an error. Consequence: audit gaps are possible in principle and are reported to the console for the operator.</td></tr>
+</table>
+
+<h1>5. Implementation</h1>
+
+<h2>5.1 Technology Stack</h2>
+<table>
+  <caption>Table 17 — Technology stack (versions from the project manifests)</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:18%">Layer</th><th style="background-color:#e9e9e9; width:34%">Technology</th><th style="background-color:#e9e9e9">Role / notes</th></tr>
+  <tr style="page-break-inside:avoid"><td>Client</td><td>React 18.3, React Router 6.30, Vite 5.4</td><td>Single-page application, route guards, build tooling</td></tr>
+  <tr style="page-break-inside:avoid"><td>Server</td><td>Node.js 22.22.3 (runtime), Express 4.21</td><td>REST API, middleware chain, static uploads</td></tr>
+  <tr style="page-break-inside:avoid"><td>Database</td><td>MongoDB 6+, Mongoose 7.8</td><td>Documents, schema validation, unique/partial/TTL indexes</td></tr>
+  <tr style="page-break-inside:avoid"><td>Authentication</td><td>jsonwebtoken 9, bcryptjs 3</td><td>Access tokens, password hashing (10 rounds)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Security middleware</td><td>Helmet 8, express-rate-limit 8, cookie-parser 1.4, cors 2.8</td><td>Headers, brute-force limits, signed cookies, credentialed CORS</td></tr>
+  <tr style="page-break-inside:avoid"><td>Uploads</td><td>Multer 2</td><td>Medicine images (JPEG/PNG/GIF/WEBP, 5 MB limit)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Testing</td><td>node:test, node:assert/strict, mongodb-memory-server 11</td><td>Real HTTP against a real Express app and an in-memory MongoDB</td></tr>
+  <tr style="page-break-inside:avoid"><td>Configuration</td><td>dotenv 17</td><td>Environment-driven settings; production refuses to start without secrets</td></tr>
+</table>
+
+<h2>5.2 Repository Structure and Size</h2>
+<table>
+  <caption>Table 18 — Repository structure and measured size</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:30%">Path</th><th style="background-color:#e9e9e9; width:12%">Lines</th><th style="background-color:#e9e9e9">Contents</th></tr>
+  <tr style="page-break-inside:avoid"><td><code>backend/models/</code></td><td>685</td><td>8 schemas: User, Medicine, Cart, Order, Session, AdminInvite, MediPointsEntry, AuditLog</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>backend/routes/</code></td><td>1,539</td><td>7 routers, 40 route handlers</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>backend/lib/</code></td><td>1,590</td><td>14 domain libraries plus the mock payment provider</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>backend/middleware/</code></td><td>238</td><td>Authentication/authorisation, rate limits, request guards</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>backend/tests/</code></td><td>3,927</td><td>11 suites and one shared helper (148 test cases)</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>backend/scripts/</code></td><td>302</td><td>db:check, local-mongo, seed-admin, migrate-roles, replenish-inventory</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>frontend/src/pages/</code></td><td>2,830</td><td>16 page views (9 storefront, 7 back office)</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>frontend/src/components/</code></td><td>751</td><td>9 shared components (navigation, dialogs, stepper, summaries, guards)</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>frontend/src/context/</code></td><td>336</td><td>AuthContext and CartContext</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>frontend/src/lib/</code></td><td>317</td><td>apiFetch wrapper, grouped API clients, formatting helpers</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>frontend/src/App.css</code></td><td>1,884</td><td>Single stylesheet, no CSS framework</td></tr>
+</table>
+
+<h2>5.3 Backend Modules</h2>
+<p>The API is composed in <code>server.js</code>, which applies Helmet, credentialed CORS, JSON parsing and a signed-cookie parser,
+serves <code>/uploads</code>, mounts the seven routers, terminates unknown <code>/api</code> paths with 404 and normalises every error
+(Mongoose validation, cast and duplicate-key errors, and Multer failures) into <code>{ error }</code> with an appropriate status code.
+Multer's temporary files are removed when a request fails, so a rejected upload leaves no orphan on disk.</p>
+
+<p><strong>Catalogue and availability.</strong> <code>models/Medicine.js</code> declares name, manufacturing and expiry dates (stored as
+<code>YYYY-MM-DD</code> strings), price, integer stock, an optional image reference, creator, <code>prescriptionRequired</code> and
+<code>refillDays</code>. A <code>pre('validate')</code> hook rejects an expiry earlier than the manufacturing date, so an invalid period
+cannot be stored even if the client bypasses the form. <code>lib/availability.js</code> treats a medicine as sellable until the end of its
+expiry day and returns a human-readable reason when it is not.</p>
+
+<p><strong>Replenishment.</strong> <code>lib/inventory.js</code> reads its rules from the environment, refuses an invalid configuration (a
+refill target at or below the watermark would refill the same row forever) and exposes <code>replenishLowStock()</code> and
+<code>startReplenishSweeper()</code>. The sweep runs once at startup and then on an interval; the timer is unreferenced so it never keeps a
+process or a test run alive, and it is cleared when the server closes. Every refill is audited with the before and after quantity.</p>
+
+<p><strong>Cart.</strong> <code>lib/cartSession.js</code> resolves the caller's cart from the JWT or from the signed <code>mt_cart</code>
+cookie (path <code>/api</code>, <code>httpOnly</code>, <code>SameSite=Lax</code>, <code>Secure</code> in production, 30-day lifetime).
+Only <code>sha256(token)</code> is stored. <code>serializeCart()</code> re-reads every medicine, so prices, stock and availability are
+current; it marks per-line issues and computes totals. Merging a guest cart into an account cart clamps each line to live stock and to the
+per-line maximum instead of failing the sign-in.</p>
+
+<p><strong>Orders and payments.</strong> <code>lib/orderService.js</code> validates the whole cart before touching stock, reserves line by
+line, rolls back on failure, snapshots items and totals, clears the cart and sets the expiry deadline. Order numbers take the form
+<code>MT-YYYY-XXXXXX</code> under a unique index with a bounded retry on collision. <code>routes/orders.js</code> enforces ownership,
+idempotent payment, expiry checks and cancellation. <code>lib/paymentGateway.js</code> is a small registry; the mock provider validates
+card numbers with the Luhn checksum plus expiry and CVV, accepts UPI with a valid VPA, accepts five demo banks for net banking and declines
+cash on delivery above ₹5,000.</p>
+
+<p><strong>MediPoints.</strong> <code>lib/medipoints.js</code> computes points from the <em>subtotal</em> in whole ₹100 blocks and inserts
+one ledger entry per order. A unique partial index on <code>order</code> turns a duplicate credit into a caught duplicate-key error, so a
+retried payment cannot earn twice.</p>
+
+<p><strong>Identity and sessions.</strong> <code>models/User.js</code> hashes with bcrypt (ten rounds) and hides the hash with
+<code>select:false</code>. <code>lib/sessions.js</code> issues a 32-byte refresh token in a signed <code>httpOnly</code> cookie, stores only
+its SHA-256 hash with a device label and expiry, rotates on every refresh, and revokes every session when a rotated token is replayed
+outside a short grace window (which covers two tabs refreshing at once). <code>tokenVersion</code> is embedded in access tokens so a
+password change or “sign out everywhere” invalidates outstanding tokens immediately.</p>
+
+<p><strong>Governance.</strong> <code>lib/permissions.js</code> maps roles to permissions (<code>catalog:read</code>,
+<code>catalog:write</code>, <code>orders:read:all</code>, <code>orders:write</code>, <code>customers:read</code>,
+<code>users:manage</code>, <code>invites:manage</code>, <code>audit:read</code>). <code>lib/audit.js</code> writes a best-effort entry
+(actor, actor e-mail, action, target, before/after, IP, user agent) and never throws. <code>middleware/rateLimit.js</code> limits failed
+sign-ins per IP and e-mail and registrations per IP; <code>middleware/requestGuards.js</code> rejects form-encoded bodies on JSON-only
+endpoints, closing the cross-site form-post path.</p>
+
+<h2>5.4 Frontend Modules</h2>
+<p>The SPA is a single-page React application with two providers at the root: <code>AuthProvider</code> (signed-in user, silent refresh on
+mount, logout, session-expired event) and <code>CartProvider</code> (cart state, merge on sign-in, add-to-cart dialog state). Routing
+distinguishes the storefront from the <code>/admin</code> console by pathname so the two layouts never mix.</p>
+
+<table>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:26%">Area</th><th style="background-color:#e9e9e9; width:36%">Modules</th><th style="background-color:#e9e9e9">Notes</th></tr>
+  <tr style="page-break-inside:avoid"><td>Storefront pages</td><td>Home, Login, Cart, Checkout, Payment, OrderConfirmation, Orders, AddMedicine (legacy), AdminRegister</td><td>Checkout requires a session; the cart itself works for guests</td></tr>
+  <tr style="page-break-inside:avoid"><td>Back-office pages</td><td>AdminLogin, AdminDashboard, AdminStock, AdminOrders, AdminCustomers, AdminInvites, AdminAudit</td><td>Guarded by role; invites and audit are admin-only</td></tr>
+  <tr style="page-break-inside:avoid"><td>Shared components</td><td>Navbar, ProtectedRoute, MedicineList, MedicineForm, Modal, AddToCartDialog, QuantityStepper, OrderSummary, AdminLayout</td><td>Modal uses the native <code>&lt;dialog&gt;</code> element for focus trapping and ESC handling</td></tr>
+  <tr style="page-break-inside:avoid"><td>API client</td><td><code>lib/api.js</code></td><td>Holds the access token in a module variable, attaches it to every request, retries once after a silent refresh, and groups endpoints into <code>adminApi</code>, <code>cartApi</code>, <code>ordersApi</code>, <code>accountApi</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>Formatting</td><td><code>lib/format.js</code></td><td>Currency (₹, en-IN), dates, minutes remaining, status labels</td></tr>
+</table>
+
+<p>Two frontend behaviours are worth recording because they encode requirements. First, the payment page renders a countdown from
+<code>order.expiresAt</code> and re-fetches the order on a decline, so the customer sees the true state after a 402 (NFR-2.2, partially).
+Second, the stock page reads the watermark and refill target from the dashboard summary rather than hard-coding 10, so the badge and the
+rule cannot drift apart.</p>
+
+<h2>5.5 Security Implementation</h2>
+<table>
+  <caption>Table 19 — Security controls mapped to requirements</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:22%">Control</th><th style="background-color:#e9e9e9; width:44%">Implementation</th><th style="background-color:#e9e9e9">Requirement</th></tr>
+  <tr style="page-break-inside:avoid"><td>Password storage</td><td>bcryptjs, ten rounds, hash excluded from queries by default and from JSON serialisation</td><td>NFR-1.2</td></tr>
+  <tr style="page-break-inside:avoid"><td>Access tokens</td><td>15-minute JWT with subject, e-mail, role, <code>tokenVersion</code> and a unique <code>jti</code>; verified on every protected request with the user re-read from the database</td><td>NFR-1.2</td></tr>
+  <tr style="page-break-inside:avoid"><td>Refresh sessions</td><td>Signed <code>httpOnly</code> cookie, SHA-256 hash at rest, rotation, reuse detection, per-device revocation, global revocation</td><td>NFR-1.2</td></tr>
+  <tr style="page-break-inside:avoid"><td>Authorisation</td><td><code>requireAuth</code> → <code>requirePermission</code> / <code>requireRole</code>; roles re-read per request, so a demotion takes effect on the next call</td><td>NFR-1.1</td></tr>
+  <tr style="page-break-inside:avoid"><td>Privileged provisioning</td><td>Single-use, expiring invites; only the hash is stored; public registration cannot request a privileged role</td><td>NFR-1.1</td></tr>
+  <tr style="page-break-inside:avoid"><td>Last-admin guard</td><td>Self-demotion rejected and the final administrator cannot be demoted</td><td>NFR-1.1</td></tr>
+  <tr style="page-break-inside:avoid"><td>Brute-force protection</td><td>Failed sign-ins limited per IP and e-mail, registrations per IP, configurable window and thresholds</td><td>NFR-1.1</td></tr>
+  <tr style="page-break-inside:avoid"><td>CSRF posture</td><td>JWT in an Authorization header (not a cookie) for state changes; <code>SameSite=Lax</code> cookies; JSON-only mutations; unknown origins rejected by CORS</td><td>NFR-1.1</td></tr>
+  <tr style="page-break-inside:avoid"><td>Transport and headers</td><td>Helmet defaults (CSP disabled deliberately because the API returns JSON and images), HSTS, nosniff, no <code>X-Powered-By</code>; HTTPS redirect and <code>trust proxy</code> in production</td><td>SRS 4.6</td></tr>
+  <tr style="page-break-inside:avoid"><td>Payment data minimisation</td><td>Card number and CVV are validated and discarded; only brand, last four digits and a generated transaction id are stored</td><td>NFR-1.4</td></tr>
+  <tr style="page-break-inside:avoid"><td>Audit trail</td><td>Append-only writes for stock, replenishment, order status, roles, invites, sign-in and password changes; no update/delete endpoint</td><td>NFR-1.3</td></tr>
+  <tr style="page-break-inside:avoid"><td>Secrets management</td><td>All keys from environment variables; production refuses to start without <code>JWT_SECRET</code> and <code>COOKIE_SECRET</code>; development fallbacks are loudly warned about</td><td>SRS 4.7</td></tr>
+  <tr style="page-break-inside:avoid"><td>File upload</td><td>MIME allow-list, 5 MB limit, generated filenames, deletion on replace/remove, orphan cleanup on request failure</td><td>—</td></tr>
+</table>
+
+<h2>5.6 Configuration and Tooling</h2>
+<p>Behaviour that an operator may reasonably tune is environment-driven rather than hard-coded. Appendix C lists the full set; the ones
+that carry requirements are the pricing rates, the reservation window, the replenishment watermark and interval, the MediPoints rate and
+the authentication lifetimes.</p>
+
+<p>Five maintenance scripts sit behind npm scripts: <code>db:check</code> verifies a connection string and prints the target database,
+<code>db:local</code> starts a local MongoDB without an installation, <code>seed:admin</code> creates or promotes the first administrator,
+<code>migrate:roles</code> applies pending one-time data migrations, and <code>inventory:replenish</code> runs a single replenishment pass
+for a cron job or a demonstration. Migrations are also applied automatically at startup and are recorded in a <code>migrations</code>
+collection so they never run twice.</p>
+
+<h1>6. Data Design and Interfaces</h1>
+
+<h2>6.1 Data Model</h2>
+<p>The database is named <code>meditrack</code> by default. Eight application collections implement the SRS entities; the SRS
+“Payments” entity is embedded in the order because a payment has no independent identity or history in this prototype, and
+“Prescriptions” is not yet implemented. A ninth collection, <code>migrations</code>, is internal bookkeeping for one-time data fixes.</p>
+
+<table>
+  <caption>Table 20 — Collections, key fields and purpose</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:17%">Collection</th><th style="background-color:#e9e9e9; width:48%">Key fields</th><th style="background-color:#e9e9e9">Purpose / SRS entity</th></tr>
+  <tr style="page-break-inside:avoid"><td><code>users</code></td><td>name, email (unique, lowercase), passwordHash (<code>select:false</code>), role (<code>customer|staff|admin</code>), tokenVersion, passwordChangedAt, timestamps</td><td>Accounts and roles — SRS Users</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>medicines</code></td><td>name, mfd, exp (<code>YYYY-MM-DD</code>), price, stock (integer, available), held (integer, promised to carts), prescriptionRequired, refillDays (1–365), image, createdBy → users, timestamps</td><td>Catalogue plus inventory — SRS Medicines/Inventory</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>carts</code></td><td>user → users (unique partial), tokenHash (unique partial, <code>select:false</code>), items[{ medicine → medicines, quantity, holdExpiresAt }], expiresAt (TTL)</td><td>Guest and account carts — SRS Cart</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>wishlists</code></td><td>user → users (unique), items[{ medicine → medicines, addedAt }], timestamps</td><td>Saved medicines, independent of the cart — SRS Wishlist (FR-1.5)</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>orders</code></td><td>orderNumber (unique), user → users, items[{ medicine, name, image, unitPrice, quantity, lineTotal }], shippingAddress{…}, totals{subtotal, tax, deliveryFee, total, itemCount, currency, taxRate, freeDeliveryOver}, status, payment{provider, method, status, transactionId, last4, brand, failureReason, paidAt}, expiresAt, timestamps</td><td>Immutable purchase snapshots — SRS Orders + Payments</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>sessions</code></td><td>user → users, tokenHash (unique, <code>select:false</code>), userAgent, ip, lastUsedAt, expiresAt (TTL), revokedAt, revokedReason, replacedBy → sessions</td><td>Refresh sessions with rotation and reuse detection</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>admininvites</code></td><td>email, role (<code>admin|staff</code>), tokenHash (unique, <code>select:false</code>), createdBy → users, expiresAt, acceptedAt, acceptedBy, revokedAt</td><td>Single-use provisioning of privileged accounts</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>medipointsentries</code></td><td>user → users, order → orders, type (<code>earn|spend|adjust</code>), points (signed integer), reason, created_at</td><td>Append-only loyalty ledger — SRS MediPoints Ledger</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>auditlogs</code></td><td>actor → users, actorEmail, action, targetType, targetId, before, after, ip, userAgent, created_at</td><td>Append-only audit trail — SRS AuditLogs</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>migrations</code></td><td>_id (migration id), appliedAt, detail</td><td>Internal: guarantees a data fix runs once</td></tr>
+</table>
+
+<table>
+  <caption>Table 21 — Indexes and the invariant each one enforces</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:24%">Collection</th><th style="background-color:#e9e9e9; width:40%">Index</th><th style="background-color:#e9e9e9">Purpose</th></tr>
+  <tr style="page-break-inside:avoid"><td><code>users</code></td><td><code>{email: 1} unique</code></td><td>One account per address</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>medicines</code></td><td><code>{created_at: -1}</code></td><td>Catalogue ordering (newest first)</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>carts</code></td><td><code>{user: 1} unique partial</code>; <code>{tokenHash: 1} unique partial</code>; <code>{expiresAt: 1} TTL</code>; <code>{'items.holdExpiresAt': 1}</code></td><td>One cart per account and per guest token; abandoned guest carts expire; the hold sweeper finds lapsed holds without a collection scan</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>wishlists</code></td><td><code>{user: 1} unique</code></td><td>One wishlist per account (FR-1.5)</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>orders</code></td><td><code>{orderNumber: 1} unique</code>; <code>{user: 1, created_at: -1}</code>; <code>{status: 1, expiresAt: 1}</code></td><td>Unique order number, fast history, fast expiry sweep</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>sessions</code></td><td><code>{tokenHash: 1} unique</code>; <code>{user: 1, revokedAt: 1}</code>; <code>{expiresAt: 1} TTL</code></td><td>No duplicate tokens; device listing; automatic cleanup</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>admininvites</code></td><td><code>{tokenHash: 1} unique</code>; <code>{email: 1, created_at: -1}</code>; <code>{expiresAt: 1}</code></td><td>Single-use tokens; pending-invite listing</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>medipointsentries</code></td><td><code>{order: 1} unique partial</code>; <code>{user: 1, created_at: -1}</code></td><td>FR-2.4: at most one credit per order; fast balance history</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>auditlogs</code></td><td><code>{created_at: -1}</code>; <code>{action: 1, created_at: -1}</code></td><td>Newest-first listing and filtering by action</td></tr>
+</table>
+
+<h2>6.2 Relationships</h2>
+<pre>users 1 ──── 0..1 carts          (user reference, unique when present)
+users 1 ──── 0..* orders         (order.user)
+users 1 ──── 0..* sessions       (session.user)
+users 1 ──── 0..* medipointsentries
+users 1 ──── 0..* admininvites   (createdBy)  and 0..1 accepted invite (acceptedBy)
+users 1 ──── 0..* medicines      (createdBy, for provenance)
+medicines 1 ── 0..* carts.items  and  0..* orders.items  (reference + snapshot copy)
+orders 1 ──── 0..1 medipointsentries (unique: one earn entry per order)</pre>
+
+<p>All references are ObjectIds with declared indexes. Order lines intentionally carry <em>both</em> the reference and a copy of the name,
+image, unit price and line total: the reference supports analytics and repeat purchase, while the copy preserves history (FR-2.6).</p>
+
+<h2>6.3 API Specification</h2>
+<table>
+  <caption>Table 22 — API groups and representative endpoints</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:16%">Group</th><th style="background-color:#e9e9e9; width:60%">Endpoints</th><th style="background-color:#e9e9e9">Access</th></tr>
+  <tr style="page-break-inside:avoid"><td>Auth</td><td><code>POST /api/auth/register</code>, <code>login</code>, <code>refresh</code>, <code>logout</code>; <code>GET /api/auth/me</code>; <code>GET|DELETE /api/auth/sessions</code>; <code>DELETE /api/auth/sessions/:id</code>; <code>PATCH /api/auth/password</code>; <code>GET /api/auth/users</code>; <code>PATCH /api/auth/users/:id/role</code></td><td>Public / signed in / admin</td></tr>
+  <tr style="page-break-inside:avoid"><td>Back-office auth</td><td><code>POST /api/admin/auth/login</code>; <code>POST /api/admin/auth/accept-invite</code></td><td>Public; customers rejected</td></tr>
+  <tr style="page-break-inside:avoid"><td>Back office</td><td><code>GET /api/admin/summary</code>; <code>GET /api/admin/orders</code>, <code>/orders/:id</code>; <code>PATCH /api/admin/orders/:id/status</code>; <code>GET /api/admin/customers</code>; <code>POST /api/admin/inventory/replenish</code>; <code>GET /api/admin/audit</code>; <code>POST|GET /api/admin/invites</code>; <code>DELETE /api/admin/invites/:id</code></td><td>staff / admin; audit and invites admin only</td></tr>
+  <tr style="page-break-inside:avoid"><td>Stock</td><td><code>GET /api/medicines</code>, <code>/medicines/:id</code>; <code>POST /api/medicines</code>; <code>PATCH /api/medicines/:id</code>; <code>DELETE /api/medicines/:id</code></td><td>Public read; writes need <code>catalog:write</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>Cart</td><td><code>GET /api/cart</code>; <code>POST /api/cart/items</code>; <code>PATCH|DELETE /api/cart/items/:medicineId</code>; <code>DELETE /api/cart</code>; <code>POST /api/cart/merge</code> — each line holds its units for <code>CART_HOLD_MINUTES</code></td><td>Guest cookie or JWT</td></tr>
+  <tr style="page-break-inside:avoid"><td>Wishlist</td><td><code>GET /api/wishlist</code>; <code>POST /api/wishlist/items</code>; <code>DELETE /api/wishlist/items/:medicineId</code>; <code>POST /api/wishlist/items/:medicineId/move-to-cart</code>; <code>DELETE /api/wishlist</code></td><td>Signed in (one list per account)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Orders</td><td><code>POST /api/orders</code>; <code>GET /api/orders</code>, <code>/orders/:id</code>; <code>POST /api/orders/:id/pay</code>; <code>POST /api/orders/:id/cancel</code></td><td>Owner</td></tr>
+  <tr style="page-break-inside:avoid"><td>Account</td><td><code>GET /api/me/medipoints</code></td><td>Signed in</td></tr>
+  <tr style="page-break-inside:avoid"><td>Platform</td><td><code>GET /api/health</code>; <code>GET /uploads/:file</code></td><td>Public</td></tr>
+</table>
+
+<h2>6.4 Error Conventions</h2>
+<p>Every failure returns JSON of the form <code>{ "error": "…" }</code>, optionally with additional context (a declined payment returns
+<code>{ error, order }</code>). Status codes are used consistently:</p>
+<ul>
+  <li><strong>400</strong> — malformed or invalid input (missing field, bad quantity, invalid refill cycle, unsupported payment method).</li>
+  <li><strong>401</strong> — missing, expired or revoked credentials; the SPA responds by refreshing once and retrying.</li>
+  <li><strong>402</strong> — payment declined by the provider; the order stays payable and the reason is stored on it.</li>
+  <li><strong>403</strong> — authenticated but not permitted (customer attempting a staff action, customer on the back-office login).</li>
+  <li><strong>404</strong> — unknown resource, including another user's order, which is deliberately not distinguished from a missing one.</li>
+  <li><strong>409</strong> — state conflict (duplicate e-mail, out of stock, expired reservation, illegal status transition).</li>
+  <li><strong>415</strong> — form-encoded body sent to a JSON-only endpoint.</li>
+  <li><strong>429</strong> — rate limit exceeded, returned as JSON rather than an HTML page.</li>
+  <li><strong>500 / 502</strong> — unexpected server error or provider unavailable; the body never exposes a stack trace.</li>
+</ul>
+
+<h1>7. Verification and Validation</h1>
+
+<p>This clause is organised in the sequence recommended by IEEE Std 829-2008: strategy, environment, test inventory, representative
+test cases, execution results and coverage. Every number in Clause 7.5 was produced by running the suite on the development machine in
+this revision; nothing is projected or estimated.</p>
+
+<h2>7.1 Verification Strategy</h2>
+<p>Verification is primarily <em>dynamic</em> and <em>end-to-end</em>. Each suite starts a real MongoDB in memory, connects the real
+database helper, starts the real Express application on an ephemeral port and issues real HTTP requests with <code>fetch</code>. No
+controller, router, model or database call is stubbed. This was a deliberate choice: the requirements that matter most here
+(reservation atomicity, single-shot stock restoration, idempotent payment, session rotation) live at the boundaries between layers, and
+unit tests with mocks would not observe them.</p>
+
+<table>
+  <caption>Table 23 — Test levels applied</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:20%">Level</th><th style="background-color:#e9e9e9; width:44%">Applied to</th><th style="background-color:#e9e9e9">Consequence</th></tr>
+  <tr style="page-break-inside:avoid"><td>Unit</td><td>Pure helpers: pricing, availability, connection-string hints, permission map, MediPoints rule, inventory configuration</td><td>Fast feedback with no I/O; includes negative cases such as an invalid refill target</td></tr>
+  <tr style="page-break-inside:avoid"><td>Integration / API</td><td>Every route group exercised over HTTP with real Mongoose models and indexes</td><td>Catches authorisation gaps, validation drift and serialisation errors</td></tr>
+  <tr style="page-break-inside:avoid"><td>Concurrency</td><td>Parallel reservation and replenishment passes (<code>Promise.all</code>) and repeated transitions</td><td>Demonstrates that the conditional-update guards hold</td></tr>
+  <tr style="page-break-inside:avoid"><td>Build / static</td><td>Frontend production build; <code>node --check</code> on every changed server file</td><td>Catches syntax and bundling errors before review</td></tr>
+  <tr style="page-break-inside:avoid"><td>Manual exploratory</td><td>Scripted end-to-end run of the storefront flow against a live server</td><td>Confirms the timers, the UI-facing shapes and the README instructions</td></tr>
+</table>
+
+<h2>7.2 Test Environment</h2>
+<ul>
+  <li>Runtime: Node.js 22.22.3, npm 10.9.8, Linux (x86-64).</li>
+  <li>Database: <code>mongodb-memory-server</code> 11 — an ephemeral real MongoDB per test file, so no installation or shared state is required.</li>
+  <li>Runner: <code>node --test</code> (built-in), <code>node:assert/strict</code>; suites run in isolated processes.</li>
+  <li>Determinism: the payment simulator latency is set to 0 ms in tests; the replenishment sweep is disabled in the inventory suite so assertions cannot race the timer; timestamps inside tests are relative to the current clock.</li>
+  <li>Isolation: each suite uses its own database name, its own port (0 = ephemeral) and its own cookie jar, so suites can run in any order or in parallel.</li>
+</ul>
+
+<h2>7.3 Test Suite Inventory</h2>
+<table>
+  <caption>Table 24 — Test suites and scope</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:22%">File</th><th style="background-color:#e9e9e9; width:10%">Cases</th><th style="background-color:#e9e9e9">Scope</th></tr>
+  <tr style="page-break-inside:avoid"><td><code>api.test.js</code></td><td>29</td><td>Health and security headers; registration and login validation; role-based stock writes; stock CRUD and image upload; validation failures; 404s; login rate limiting; catalogue ordering</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>cart-orders.test.js</code></td><td>21</td><td>Signed cart cookie; guest cart and merge; quantity, stock and expiry validation; server-side totals; checkout snapshot and reservation; rollback; card, UPI, net-banking and COD payments; declines and retries; cancellation; reservation expiry; ownership; order history</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>inventory.test.js</code></td><td>12</td><td>Restock at the watermark; rows above the watermark untouched; zero-stock restock; expired stock excluded; configurable watermark/target; concurrent sweeps restock once; RBAC on the endpoint; audit entry; dashboard configuration; Rx and refill fields with validation</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>medipoints.test.js</code></td><td>9</td><td>₹100-block earning rule and configurable rate; authentication required; zero starting balance; credit after a confirmed card payment; no double credit on replay; decline-then-retry credits once; COD earns nothing; per-customer isolation</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>admin.test.js</code></td><td>9</td><td>Role split (customer/staff/admin); staff stock rights; invite creation, acceptance, expiry and revocation; order fulfilment transitions; customer statistics; audit log contents and access</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>sessions.test.js</code></td><td>8</td><td>Refresh-token rotation; reuse detection revoking all sessions; logout; password change invalidating access tokens; listing and revoking another device; sign-out everywhere</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>mongoErrors.test.js</code></td><td>8</td><td>Connection-string redaction, local/cloud classification, targeted hints for bad auth, DNS/SRV failures and timeouts</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>config.test.js</code></td><td>1</td><td>Production refuses to start without <code>JWT_SECRET</code> and <code>COOKIE_SECRET</code></td></tr>
+  <tr style="page-break-inside:avoid"><td><strong>Total</strong></td><td><strong>148</strong></td><td>All passing (Clause 7.5)</td></tr>
+</table>
+
+<h2>7.4 Representative Test Cases</h2>
+<table>
+  <caption>Table 25 — Representative test cases with expected and observed results</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:6%">ID</th><th style="background-color:#e9e9e9; width:17%">Requirement</th><th style="background-color:#e9e9e9; width:30%">Input / action</th><th style="background-color:#e9e9e9; width:27%">Expected</th><th style="background-color:#e9e9e9">Observed</th></tr>
+  <tr style="page-break-inside:avoid"><td>TC-01</td><td>FR-1.1</td><td>Medicine at stock 10; <code>POST /api/admin/inventory/replenish</code> as staff</td><td>200, one row restocked 10→100, stock now 100</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-02</td><td>FR-1.1</td><td>Two concurrent replenishment passes on a row at stock 2</td><td>Exactly one pass reports the row; final stock 100 (not 200)</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-03</td><td>FR-1.1</td><td>Expired medicine at stock 3; replenish</td><td>Row skipped; stock remains 3</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-04</td><td>FR-1.1, NFR-1.1</td><td>Anonymous and customer callers on the replenish endpoint</td><td>401 and 403</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-05</td><td>FR-2.3</td><td>Pay by net banking with bank <code>hdfc</code></td><td>200, status <code>paid</code>, method <code>netbanking</code>, brand <code>hdfc</code>, no last4</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-06</td><td>FR-2.3</td><td>Net banking with unknown bank, <code>failbank</code> and no bank; then retry with <code>sbi</code></td><td>402 three times with distinct reasons; retry succeeds</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-07</td><td>FR-2.2</td><td>Card <code>4000 0000 0000 0002</code> (Luhn-valid, forced decline), then UPI retry</td><td>402 with order still <code>pending_payment</code>; retry pays</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-08</td><td>FR-2.4</td><td>₹250 subtotal paid by card</td><td>Balance 2 points, one ledger entry linked to the order</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-09</td><td>FR-2.4</td><td>Replay the payment request on an already-paid order</td><td>200 without re-charging; balance unchanged</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-10</td><td>FR-2.4</td><td>Cash-on-delivery order confirmed</td><td>Status <code>processing</code>, payment pending, no points</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-11</td><td>NFR-2.1</td><td>Two buyers race for the last unit</td><td>One order created, the other 409; stock never negative</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-12</td><td>NFR-2.1</td><td>Multi-line checkout where a later line is short</td><td>409 and every earlier reservation rolled back</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-13</td><td>FR-2.6, NFR-2.1</td><td>Cancel an unpaid order, then cancel again</td><td>Stock restored once; second call a no-op</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-14</td><td>FR-2.6</td><td>Let a reservation lapse, then read the order</td><td>Status <code>expired</code>, stock restored once</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-15</td><td>NFR-1.2</td><td>Replay a rotated refresh token</td><td>All sessions revoked; access tokens rejected</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-16</td><td>NFR-1.2</td><td>Change the password, then use the previous access token</td><td>401 immediately</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-17</td><td>NFR-1.1</td><td>Customer attempts <code>POST /api/medicines</code>; staff attempts it</td><td>403 for the customer, 201 for staff</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-18</td><td>NFR-1.3</td><td>Restock, then read <code>/api/admin/audit?action=medicine.replenish</code> as admin</td><td>Entry present with before/after stock; staff gets 403</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-19</td><td>FR-1.6</td><td>Register with <code>role: "admin"</code></td><td>403 — privileged roles are never self-service</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-20</td><td>NFR-1.1</td><td>Exceed the failed-login limit for one e-mail</td><td>429 with a JSON error</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-21</td><td>FR-1.2, NFR-2.1</td><td>Two guests each add the last 5 units of one medicine at the same moment</td><td>Exactly one hold succeeds; <code>stock</code> 0, <code>held</code> 5</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-22</td><td>FR-1.3</td><td>Move a cart line's hold deadline into the past, then read the cart</td><td>Units returned to <code>stock</code>, line still present with <code>holdExpired</code>; a second sweep releases nothing</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-23</td><td>FR-1.2, FR-2.2</td><td>Check out a held line, then cancel the order</td><td>Checkout leaves <code>stock</code> unchanged and clears <code>held</code>; cancel returns the units to <code>stock</code></td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-24</td><td>FR-1.5</td><td>Save a medicine, then move it to the cart twice</td><td>Second move fails at the stock limit; the wishlist keeps the item</td><td class="ok">Pass</td></tr>
+  <tr style="page-break-inside:avoid"><td>TC-25</td><td>FR-1.3</td><td>Guest adds 2 units, then signs in</td><td>Guest hold released and re-taken on the account cart; counters unchanged, guest cart gone</td><td class="ok">Pass</td></tr>
+</table>
+
+<h2>7.5 Execution Results</h2>
+<table>
+  <caption>Table 26 — Executed test results (this revision)</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:34%">Suite</th><th style="background-color:#e9e9e9; width:13%">Cases</th><th style="background-color:#e9e9e9; width:13%">Passed</th><th style="background-color:#e9e9e9; width:12%">Failed</th><th style="background-color:#e9e9e9">Notes</th></tr>
+  <tr style="page-break-inside:avoid"><td><code>tests/api.test.js</code></td><td>29</td><td>29</td><td>0</td><td>Includes rate-limit and upload cases</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>tests/cart-orders.test.js</code></td><td>21</td><td>21</td><td>0</td><td>Four payment methods, declines, expiry</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>tests/inventory.test.js</code></td><td>12</td><td>12</td><td>0</td><td>Sweeper disabled in this suite for determinism</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>tests/medipoints.test.js</code></td><td>9</td><td>9</td><td>0</td><td>Includes idempotency and COD cases</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>tests/admin.test.js</code></td><td>9</td><td>9</td><td>0</td><td>Invites, fulfilment, audit</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>tests/sessions.test.js</code></td><td>8</td><td>8</td><td>0</td><td>Rotation and reuse detection</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>tests/mongoErrors.test.js</code></td><td>8</td><td>8</td><td>0</td><td>Pure unit tests, no database</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>tests/config.test.js</code></td><td>1</td><td>1</td><td>0</td><td>Production secret guard</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>tests/wishlist.test.js</code></td><td>18</td><td>18</td><td>0</td><td>Save/remove/clear, live flags, move-to-cart (FR-1.5)</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>tests/cart-holds.test.js</code></td><td>21</td><td>21</td><td>0</td><td>Hold service: atomicity, sweeper, conversion, migration (FR-1.2/1.3)</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>tests/cart-holds-api.test.js</code></td><td>12</td><td>12</td><td>0</td><td>Hold behaviour over HTTP: add, renew, merge, checkout, rollback</td></tr>
+  <tr style="page-break-inside:avoid"><td><strong>Total</strong></td><td><strong>148</strong></td><td><strong>148</strong></td><td><strong>0</strong></td><td>Full run 4.0–6.5 s wall clock; no skips, no todos</td></tr>
+</table>
+
+<p>The suite is reproducible with <code>cd backend &amp;&amp; npm test</code> and requires no MongoDB installation (Appendix E). The
+per-file counts above were obtained by running each suite individually as well as the full set, and the two agree.</p>
+
+<h2>7.6 Build and Static Verification</h2>
+<table>
+  <caption>Table 27 — Build verification</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:26%">Check</th><th style="background-color:#e9e9e9; width:30%">Command</th><th style="background-color:#e9e9e9">Observed result</th></tr>
+  <tr style="page-break-inside:avoid"><td>Frontend production build</td><td><code>cd frontend &amp;&amp; npm run build</code></td><td>Vite 5.4.21, 67 modules transformed; CSS 23.49 kB (gzip 5.06 kB); JS 250.82 kB (gzip 73.67 kB); built in ≈1–2 s</td></tr>
+  <tr style="page-break-inside:avoid"><td>Server syntax</td><td><code>node --check</code> on changed files</td><td>No syntax errors in 10 files</td></tr>
+  <tr style="page-break-inside:avoid"><td>Backend start-up</td><td><code>npm run dev</code> against a local MongoDB</td><td>Connects, applies migrations, runs the startup sweep, logs the listening port</td></tr>
+  <tr style="page-break-inside:avoid"><td>Guidance script</td><td><code>npm run db:check</code></td><td>Prints the redacted target, database name, server version, collections and document counts</td></tr>
+</table>
+
+<h2>7.7 Requirement-to-Test Coverage</h2>
+<table>
+  <caption>Table 28 — Requirement coverage by automated tests</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:20%">Requirement</th><th style="background-color:#e9e9e9; width:32%">Covering suite(s)</th><th style="background-color:#e9e9e9">Coverage judgement</th></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.1</td><td><code>inventory.test.js</code></td><td class="ok">Direct: watermark, target, expiry exclusion, configuration, concurrency, RBAC, audit</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.2, FR-1.3</td><td><code>cart-orders.test.js</code></td><td class="partial">Order-level reservation, rollback, expiry and single-shot release covered; cart-level holds do not exist yet</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.4, FR-2.1</td><td><code>inventory.test.js</code> (field only)</td><td class="partial">The Rx flag round-trips through the API; the verification gate is not implemented, so it cannot be tested</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.5</td><td>—</td><td class="plan">Not covered (feature planned)</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.6, FR-1.7</td><td><code>api.test.js</code>, <code>sessions.test.js</code></td><td class="ok">Direct: validation, role forcing, login, refresh, revocation</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.2</td><td><code>cart-orders.test.js</code></td><td class="ok">Direct: decline, retry, rollback, no partial decrement</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.3</td><td><code>cart-orders.test.js</code></td><td class="ok">Direct: card success/decline, UPI success/decline, net banking success/declines, COD limit</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.4</td><td><code>medipoints.test.js</code></td><td class="ok">Direct: rule, gating on payment state, idempotency, isolation</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.5</td><td><code>inventory.test.js</code> (field only)</td><td class="partial">Refill cycle is stored; reminder workflow planned</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.6</td><td><code>cart-orders.test.js</code>, <code>admin.test.js</code></td><td class="ok">Snapshot values asserted at checkout; status transitions restricted by a fixed map</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-1.1</td><td><code>api.test.js</code>, <code>admin.test.js</code>, <code>inventory.test.js</code></td><td class="ok">401/403 across stock, back office, audit and replenishment</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-1.2</td><td><code>api.test.js</code>, <code>sessions.test.js</code>, <code>config.test.js</code></td><td class="ok">Hashing, token expiry, rotation, reuse detection, production secret guard</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-1.3</td><td><code>admin.test.js</code>, <code>inventory.test.js</code></td><td class="partial">Writes and reads covered; the absence of an update/delete route is verified by inspection, not by a test asserting the route does not exist</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-1.4</td><td><code>cart-orders.test.js</code></td><td class="partial">Brand/last4-only persistence is asserted; prescription encryption pending</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-2.1</td><td><code>cart-holds.test.js</code>, <code>cart-holds-api.test.js</code>, <code>cart-orders.test.js</code>, <code>inventory.test.js</code></td><td class="ok">Hold atomicity, concurrency and rollback both exercised</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-2.2</td><td>—</td><td class="partial">Cart and checkout countdowns verified manually only; no browser automation</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-2.3</td><td>—</td><td class="plan">Goal; no uptime test possible in a single-host prototype</td></tr>
+</table>
+
+<h2>7.8 Threats to Validity</h2>
+<ul>
+  <li><strong>Internal validity.</strong> Tests run against <code>mongodb-memory-server</code>, a real but ephemeral MongoDB. Behaviour that
+      depends on a replica set (multi-document transactions), on network latency between application and database, or on Atlas-specific
+      settings is therefore not exercised.</li>
+  <li><strong>Concurrency realism.</strong> Concurrency is simulated with <code>Promise.all</code> inside one process. This exercises the
+      conditional updates but not true multi-process contention; a load generator would strengthen the claim.</li>
+  <li><strong>External validity.</strong> No load, soak, accessibility or cross-browser testing was performed. The frontend is verified by a
+      successful production build and a manual walkthrough, not by browser automation.</li>
+  <li><strong>Construct validity.</strong> Requirement wording is interpreted, and Table 8 records every such interpretation so a reviewer
+      can disagree explicitly rather than discover a silent redefinition.</li>
+  <li><strong>Conclusion validity.</strong> A passing suite shows that asserted behaviour holds; it does not prove the absence of defects,
+      and several requirements (FR-2.1, FR-2.5, NFR-2.2, NFR-2.3) have no automated coverage.</li>
+</ul>
+
+<h1>8. Results and Discussion</h1>
+
+<h2>8.1 Summary of Results</h2>
+<p>The prototype delivers a coherent end-to-end workflow — browse, cart, checkout, pay, fulfil — with the consistency and access-control
+properties the SRS treats as high priority, and it does so under the constraints of a three-person, one-semester project. Table 29
+collects the measured indicators. Only quantities that were observed are listed; no throughput or latency figure is claimed, because no
+load test was performed.</p>
+
+<table>
+  <caption>Table 29 — Measured project indicators</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:36%">Indicator</th><th style="background-color:#e9e9e9; width:24%">Measured value</th><th style="background-color:#e9e9e9">Basis</th></tr>
+  <tr style="page-break-inside:avoid"><td>Automated test cases</td><td>148</td><td>Eleven suites, <code>node --test</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>Pass rate</td><td>148 / 148 (100 %)</td><td>Full-suite runs in this revision</td></tr>
+  <tr style="page-break-inside:avoid"><td>Full-suite wall-clock time</td><td>4.0–6.5 s</td><td>Four runs, warm and cold cache</td></tr>
+  <tr style="page-break-inside:avoid"><td>Backend source (non-test)</td><td>≈ 5,728 lines</td><td>models + routes + lib + middleware + scripts</td></tr>
+  <tr style="page-break-inside:avoid"><td>Backend tests</td><td>3,927 lines</td><td>≈ 41 % of backend code</td></tr>
+  <tr style="page-break-inside:avoid"><td>Frontend source</td><td>≈ 6,991 lines</td><td>Pages, components, contexts, helpers, stylesheet</td></tr>
+  <tr style="page-break-inside:avoid"><td>REST route handlers</td><td>46</td><td>45 router handlers plus <code>/api/health</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>Mongo collections / models</td><td>9 (+1 internal)</td><td>Table 20</td></tr>
+  <tr style="page-break-inside:avoid"><td>Frontend production bundle</td><td>250.82 kB JS (73.67 kB gzip), 23.49 kB CSS</td><td><code>vite build</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>Functional requirements</td><td>9 verified, 1 partial, 3 planned</td><td>Table 6, Appendix A</td></tr>
+  <tr style="page-break-inside:avoid"><td>Non-functional requirements</td><td>4 verified, 2 partial, 1 goal</td><td>Table 7</td></tr>
+</table>
+
+<h2>8.2 Requirements Alignment</h2>
+<table>
+  <caption>Table 30 — Requirement-by-requirement assessment</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:30%">SRS area</th><th style="background-color:#e9e9e9; width:16%">Assessment</th><th style="background-color:#e9e9e9">Evidence</th></tr>
+  <tr style="page-break-inside:avoid"><td>Live stock catalogue (≈50 items)</td><td class="ok">Implemented</td><td>Public listing with live stock, price, dates and images; seeding to approximately 50 items is a demo task (Phase F)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Replenishment at the watermark</td><td class="ok">Implemented</td><td>Sweep plus manual endpoint, configuration-driven, expired rows excluded, audited (TC-01 to TC-04)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Cart soft hold and automatic release</td><td class="ok">Implemented</td><td>Adding to the cart moves units into a <code>held</code> counter under <code>CART_HOLD_MINUTES</code>; the sweeper, a cart read and cart changes release a lapsed hold, and the line stays with a refresh action (TC-21 to TC-23)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Prescription detection and billing block</td><td class="plan">Planned</td><td>The Rx flag exists and is staff-editable; upload, verification queue and checkout gate are Phase D</td></tr>
+  <tr style="page-break-inside:avoid"><td>Wishlist</td><td class="ok">Implemented</td><td>Independent collection, one list per account, move-to-cart reuses the cart's stock checks (TC-24, TC-25)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Customer registration and login</td><td class="ok">Implemented</td><td>Customer-only registration, JWT access tokens, rotating refresh sessions (TC-15, TC-16, TC-19)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Payment methods (UPI, debit, credit, net banking)</td><td class="ok">Implemented</td><td>Four methods through the sandbox adapter (TC-05, TC-06)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Payment failure leaves state unchanged</td><td class="ok">Implemented</td><td>The decline path updates payment fields only; retry succeeds (TC-07)</td></tr>
+  <tr style="page-break-inside:avoid"><td>MediPoints after confirmed payment</td><td class="ok">Implemented</td><td>Ledger with a unique index, verified for card, replay and COD (TC-08 to TC-10)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Refill reminders to teleconsultation</td><td class="plan">Planned</td><td>Refill cycle stored; reminder and teleconsultation request are Phase E</td></tr>
+  <tr style="page-break-inside:avoid"><td>Immutable purchase history</td><td class="ok">Implemented</td><td>Order snapshots, no mutating routes, restricted transitions (TC-13, TC-14)</td></tr>
+  <tr style="page-break-inside:avoid"><td>RBAC on every protected request</td><td class="ok">Implemented</td><td>Permission checks per route (TC-17, TC-20)</td></tr>
+  <tr style="page-break-inside:avoid"><td>bcrypt + JWT with expiry</td><td class="ok">Implemented</td><td>Ten-round hashing, 15-minute tokens, 30-day refresh sessions, revocation (TC-15, TC-16)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Append-only audit log</td><td class="ok">Implemented</td><td>Audited writes, read-only listing, no update/delete route (TC-18)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Payment data encrypted or tokenised at rest</td><td class="partial">Partial</td><td>No card data retained; prescription encryption is Phase D</td></tr>
+  <tr style="page-break-inside:avoid"><td>Atomic reservation</td><td class="ok">Implemented</td><td>Conditional updates with rollback (TC-11, TC-12)</td></tr>
+  <tr style="page-break-inside:avoid"><td>Hold time and Rx status at checkout</td><td class="partial">Partial</td><td>Live cart-hold countdown on <code>/cart</code> and <code>/checkout</code> plus the order-reservation countdown; Rx status arrives with Phase D</td></tr>
+  <tr style="page-break-inside:avoid"><td>24×7 operational goal</td><td class="partial">Goal</td><td>Stateless API and idempotent operations; no monitoring, backup or SLA evidence</td></tr>
+  <tr style="page-break-inside:avoid"><td>QR/barcode simulation</td><td class="plan">Planned</td><td>Phase F; no hardware dependency exists</td></tr>
+</table>
+
+<h2>8.3 Discussion of Trade-offs</h2>
+<p><strong>Correctness without transactions.</strong> The most consequential decision was to make every stock and status change a
+single-document conditional update. It keeps the prototype portable to a standalone MongoDB and gives one clear invariant per operation,
+but it moves atomicity for a multi-line checkout into application logic: the code must remember to compensate earlier lines, and that
+compensation is exactly what the rollback branch does. A replica set with a transaction would remove the compensation code at the cost of
+a heavier development environment.</p>
+
+<p><strong>Where holds belong.</strong> Reserving at checkout keeps the cart simple and makes the reservation window coincide with the payment
+window, when a customer is most likely to convert. The SRS asks for a hold at add-to-cart, which protects a customer who is still
+shopping, at the cost of a second stock counter (<code>held</code>), a release sweeper and a conversion step at checkout. Phase C
+implements the SRS reading: <code>stock</code> is what a new customer can buy, <code>held</code> is what live carts are promised, and
+<code>stock + held</code> is the physical quantity, which only a completed sale or a replenishment changes. Both counters move in single
+conditional updates (<code>acquireHold</code>, <code>releaseHold</code>, <code>convertHoldToSale</code>, <code>restoreHold</code>) and the
+invariant is asserted by its own suite before any UI work.</p>
+
+<p><strong>Replenishment as a background event.</strong> Restocking inside the checkout path would have simplified the demo but would make a
+sale mutate stock in two opposite directions within one request, weakening both the audit story and the reservation arithmetic. A separate
+sweep keeps a sale honest and models a supplier delivery, at the cost of stock remaining at the watermark until the next pass — visible in
+the demo by design and controllable through the manual endpoint.</p>
+
+<p><strong>A ledger instead of a counter.</strong> Storing a MediPoints balance on the user would have been one field and one update. The
+ledger costs an aggregation per read but buys an auditable history and a database-enforced “once per order” rule that survives a replayed
+request — precisely the failure mode FR-2.4 is about.</p>
+
+<h2>8.4 Limitations</h2>
+<ul>
+  <li><strong>Unfinished SRS scope.</strong> Cart soft holds, prescription gating, wishlist, refill reminders and QR/barcode simulation are
+      specified but not built (Tables 6 and 30).</li>
+  <li><strong>No batch-level inventory.</strong> One stock counter and one expiry date per medicine; several batches of the same medicine
+      with different expiry dates cannot be represented. The repository README records the embedded-batch shape to adopt if that becomes a
+      requirement.</li>
+  <li><strong>Single process.</strong> Rate limiting and the replenishment sweep assume one API instance; scaling out needs a shared limiter
+      store and an elected sweeper.</li>
+  <li><strong>Local file storage.</strong> Medicine images live on the API host's disk, so a multi-host deployment needs object storage.</li>
+  <li><strong>No performance evidence.</strong> No load, soak or profiling work was done; this report claims functional correctness, not
+      performance.</li>
+  <li><strong>Limited frontend verification.</strong> Production build plus manual walkthrough; no unit tests, browser automation or
+      accessibility audit for the React code.</li>
+  <li><strong>Prototype operations.</strong> No monitoring, backup or recovery procedure, and TLS termination is delegated to the hosting
+      platform.</li>
+</ul>
+
+<h2>8.5 Risks and Mitigations</h2>
+<table>
+  <caption>Table 31 — Risk register</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:26%">Risk</th><th style="background-color:#e9e9e9; width:10%">Likelihood</th><th style="background-color:#e9e9e9; width:10%">Impact</th><th style="background-color:#e9e9e9">Mitigation</th></tr>
+  <tr style="page-break-inside:avoid"><td>Cart-hold work (Phase C) breaks reservation accounting and causes overselling</td><td>Medium</td><td>High</td><td><span class="ok">Retired in Phase C.</span> The <code>held</code> counter landed behind its own suite (33 tests, TC-21 to TC-23); <code>stock + held</code> is asserted after holds, releases and sales; a hold converts to a sale in one conditional update, and a failed checkout restores the promise with <code>restoreHold()</code>.</td></tr>
+  <tr style="page-break-inside:avoid"><td>Requirement drift between SRS revisions</td><td>Medium</td><td>Medium</td><td>Appendix A is the single traceability source; any change is recorded in Table 8 before code is written</td></tr>
+  <tr style="page-break-inside:avoid"><td>Prescription upload exposes patient data</td><td>Medium</td><td>High</td><td>Phase D: AES-256-GCM at rest, storage outside the static directory, access limited to the owner and a verifier, access logged</td></tr>
+  <tr style="page-break-inside:avoid"><td>Privilege escalation through a missed authorisation check</td><td>Low</td><td>High</td><td>Permission middleware on every protected route; 401/403 tests per group; role re-read on each request</td></tr>
+  <tr style="page-break-inside:avoid"><td>Secret leakage from development configuration</td><td>Low</td><td>High</td><td>No secrets committed; production refuses to boot without secrets; connection strings redacted in logs</td></tr>
+  <tr style="page-break-inside:avoid"><td>Concurrency defects missed by in-process tests</td><td>Medium</td><td>Medium</td><td>Add a multi-process load test against the reservation endpoint before claiming production readiness</td></tr>
+  <tr style="page-break-inside:avoid"><td>Team availability in the final weeks</td><td>Medium</td><td>Medium</td><td>Phases are independently shippable and each ends with tests and documentation, so the project stays presentable at any point</td></tr>
+</table>
+
+<h1>9. Conclusion and Future Work</h1>
+
+<h2>9.1 Conclusion</h2>
+<p>MediTrack is a working three-tier pharmacy storefront with a back-office console, built against a formal SRS within the constraints of a
+one-semester, three-person project. The parts of the SRS that carry the highest risk — inventory consistency, payment failure handling,
+privilege separation, session security and auditability — are implemented and are covered by 148 passing automated tests. The parts that
+remain are clearly identified rather than hidden: prescription verification, refill reminders and QR/barcode simulation, plus the
+hardening work of Phase F.</p>
+
+<p>Three outcomes are worth carrying forward. First, the prototype demonstrates that the important invariants of an e-commerce checkout can
+be defended without multi-document transactions, by expressing each one as a conditional single-document update with an explicit
+compensation path. Second, the project shows how a requirement can be traced to a file and to an executing test, which is what makes the
+status claims in this report checkable rather than rhetorical. Third, the remaining work is not a research problem but a sequencing
+problem: each outstanding requirement has a defined data model, endpoint and test plan, and the phases are ordered so that each one leaves
+the system in a demonstrable state.</p>
+
+<h2>9.2 Future Work</h2>
+<p>Phases A, B and C are delivered, each with its own test suite and an updated Appendix A. Remaining work is organised as three
+increments. Each increment is independently reviewable, adds its own tests, and updates Appendix A so the traceability matrix never lags
+behind the code.</p>
+
+<table>
+  <caption>Table 32 — Future work mapped to requirements</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:10%">Phase</th><th style="background-color:#e9e9e9; width:30%">Scope</th><th style="background-color:#e9e9e9; width:19%">Requirements closed</th><th style="background-color:#e9e9e9">Design notes</th></tr>
+  <tr style="page-break-inside:avoid"><td>D</td><td>Prescriptions: upload (PDF/JPG/PNG), AES-256-GCM at rest, verification queue, checkout gate, Rx status at checkout and on the receipt</td><td>FR-1.4, FR-2.1, NFR-1.4, NFR-2.2</td><td>One verified prescription per customer valid for a configurable period; files stored outside the static directory and streamed only to the owner or a verifier</td></tr>
+  <tr style="page-break-inside:avoid"><td>E</td><td>Refill reminders from purchase history and a teleconsultation request</td><td>FR-2.5</td><td>Computed from <code>last purchase + refillDays</code>; the action books an assisted consultation instead of re-dispatching medicine (ASSUME-1)</td></tr>
+  <tr style="page-break-inside:avoid"><td>F</td><td>Hardening and demo readiness: schema-level immutability guards, simulated QR token with an admin scan endpoint, catalogue seeding to ≈50 medicines, README and traceability refresh</td><td>FR-2.6 (defence in depth), NFR-1.3, SRS 4.5</td><td>No new dependency for the QR simulation; guards written as Mongoose middleware so a script cannot bypass them</td></tr>
+</table>
+
+<p><strong>Operational work beyond the prototype.</strong> Before any real deployment the team should add monitoring and alerting, scheduled
+backups with a restore drill, a shared rate-limit store and a single elected sweeper for multi-instance hosting, object storage for
+uploads, a content-security policy for the served SPA, dependency scanning in CI, and a load test that exercises the reservation path from
+several processes. These are recorded here because the SRS explicitly excludes production guarantees (NFR-2.3) while the architecture
+should not make them impossible.</p>
+
+<h1>References</h1>
+<ol>
+  <li>IEEE, <em>IEEE Recommended Practice for Software Requirements Specifications</em>, IEEE Std 830-1998, Institute of Electrical and
+      Electronics Engineers, 1998.</li>
+  <li>MediTrack Development Team, <em>MediTrack — Software Requirements Specification, Version 1.0</em>, 13 pp., prepared per IEEE Std
+      830 structure, 2026.</li>
+  <li>IEEE, <em>IEEE Standard for Information Technology — Systems Design — Software Design Descriptions</em>, IEEE Std 1016-2009,
+      Institute of Electrical and Electronics Engineers, 2009.</li>
+  <li>IEEE, <em>IEEE Standard for Software and System Test Documentation</em>, IEEE Std 829-2008, Institute of Electrical and Electronics
+      Engineers, 2008.</li>
+  <li>E. Alba, <em>Writing a Scientific/Technical Report</em>, Departamento de Lenguajes y Ciencias de la Computación, Universidad de
+      Málaga, 2002.</li>
+  <li>MediTrack Project Team, <em>MediTrack source repository and README</em> (commits <code>85ee0b2</code>, <code>0f84a56</code>,
+      <code>aae2e5c</code>, <code>1f37654</code> and <code>4e836f2</code>), 2026.</li>
+  <li>MongoDB Inc., <em>MongoDB Manual: indexing, unique and partial indexes, TTL indexes, atomic updates</em>, 2026. [Online]. Available:
+      https://www.mongodb.com/docs/manual/</li>
+  <li>OpenJS Foundation, <em>Node.js Documentation: test runner, crypto, http</em>, 2026. [Online]. Available:
+      https://nodejs.org/api/</li>
+  <li>Express.js, <em>Express 4.x API Reference</em> and Mongoose, <em>Mongoose 7 Documentation</em>, 2026. [Online]. Available:
+      https://expressjs.com/ and https://mongoosejs.com/docs/</li>
+  <li>Meta Open Source, <em>React Documentation</em> and Vite, <em>Vite Guide</em>, 2026. [Online]. Available: https://react.dev/ and
+      https://vitejs.dev/guide/</li>
+</ol>
+
+<br style="page-break-before: always;" />
+
+<h1>Appendix A. Requirements Traceability Matrix</h1>
+<p>Each row maps one SRS requirement to the artefact that implements it and to the evidence that verifies it. “Verified” means an
+automated test asserts the behaviour; “partial” means the mechanism exists but does not yet meet the SRS wording; “planned” means the
+requirement is scheduled in Table 32 and has no implementation to point at.</p>
+
+<table>
+  <caption>Table 33 — Traceability from requirement to implementation and evidence</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:8%">ID</th><th style="background-color:#e9e9e9; width:8%">Prio.</th><th style="background-color:#e9e9e9; width:25%">Requirement (abridged)</th><th style="background-color:#e9e9e9; width:12%">Status</th><th style="background-color:#e9e9e9; width:26%">Implementation</th><th style="background-color:#e9e9e9">Evidence</th></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.1</td><td>High</td><td>Replenish at watermark 10 → 100</td><td class="ok">Verified</td><td><code>lib/inventory.js</code>; <code>server.js</code> sweep; <code>POST /api/admin/inventory/replenish</code>; <code>scripts/replenish-inventory.js</code></td><td><code>tests/inventory.test.js</code> (12)</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.2</td><td>High</td><td>Atomic soft hold on add-to-cart</td><td class="ok">Verified</td><td><code>lib/cartHolds.js</code> (<code>acquireHold</code>), <code>setLineQuantity()</code> in <code>lib/cartSession.js</code>, <code>routes/cart.js</code>; <code>CART_HOLD_MINUTES</code></td><td><code>tests/cart-holds.test.js</code> (21), <code>tests/cart-holds-api.test.js</code> (12)</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.3</td><td>High</td><td>Release expired hold automatically</td><td class="ok">Verified</td><td><code>releaseExpiredHolds()</code> + sweeper in <code>server.js</code>, lazy release in <code>loadLiveCart()</code>, release on removal/clear/merge; the line stays with a refresh action</td><td><code>tests/cart-holds.test.js</code>, <code>tests/cart-holds-api.test.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.4</td><td>High</td><td>Detect Rx-only items and block billing</td><td class="plan">Planned</td><td><code>Medicine.prescriptionRequired</code>; gate in Phase D</td><td>Field asserted in <code>tests/inventory.test.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.5</td><td>Medium</td><td>Wishlist independent of cart</td><td class="ok">Verified</td><td><code>models/Wishlist.js</code>, <code>lib/wishlist.js</code>, <code>routes/wishlist.js</code>, <code>pages/Wishlist.jsx</code>; move-to-cart reuses <code>addItemToCart()</code></td><td><code>tests/wishlist.test.js</code> (18)</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.6</td><td>High</td><td>Customer account creation</td><td class="ok">Verified</td><td><code>routes/auth.js</code></td><td><code>tests/api.test.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-1.7</td><td>High</td><td>Customer login</td><td class="ok">Verified</td><td><code>routes/auth.js</code>, <code>lib/sessions.js</code></td><td><code>tests/api.test.js</code>, <code>tests/sessions.test.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.1</td><td>High</td><td>Block checkout until Rx verified</td><td class="plan">Planned</td><td>Phase D</td><td>—</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.2</td><td>High</td><td>Failed payment leaves state unchanged</td><td class="ok">Verified</td><td><code>lib/orderService.js</code>, <code>routes/orders.js</code></td><td><code>tests/cart-orders.test.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.3</td><td>High</td><td>UPI, debit, credit, net banking (sandbox)</td><td class="ok">Verified</td><td><code>lib/providers/mockPayment.js</code></td><td><code>tests/cart-orders.test.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.4</td><td>Medium</td><td>MediPoints after confirmed payment</td><td class="ok">Verified</td><td><code>lib/medipoints.js</code>, <code>models/MediPointsEntry.js</code>, <code>routes/me.js</code></td><td><code>tests/medipoints.test.js</code> (9)</td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.5</td><td>Medium</td><td>Refill reminder → teleconsultation</td><td class="plan">Planned</td><td><code>Medicine.refillDays</code>; workflow in Phase E</td><td>Field asserted in <code>tests/inventory.test.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>FR-2.6</td><td>High</td><td>Immutable purchase history</td><td class="ok">Verified</td><td><code>models/Order.js</code> snapshots; no mutating route</td><td><code>tests/cart-orders.test.js</code>, <code>tests/admin.test.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-1.1</td><td>High</td><td>RBAC on every protected request</td><td class="ok">Verified</td><td><code>middleware/auth.js</code>, <code>lib/permissions.js</code></td><td><code>tests/api.test.js</code>, <code>tests/admin.test.js</code>, <code>tests/inventory.test.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-1.2</td><td>High</td><td>bcrypt + JWT with session expiry</td><td class="ok">Verified</td><td><code>models/User.js</code>, <code>models/Session.js</code>, <code>lib/sessions.js</code></td><td><code>tests/sessions.test.js</code>, <code>tests/config.test.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-1.3</td><td>High</td><td>Append-only audit log</td><td class="ok">Verified</td><td><code>lib/audit.js</code>, <code>models/AuditLog.js</code></td><td><code>tests/admin.test.js</code>, <code>tests/inventory.test.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-1.4</td><td>High</td><td>Tokens and prescription data protected</td><td class="partial">Partial</td><td>No card data stored; prescription encryption in Phase D</td><td><code>tests/cart-orders.test.js</code> (brand/last4 only)</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-2.1</td><td>High</td><td>Atomic reservation, no overselling</td><td class="ok">Verified</td><td>One conditional update per line: <code>lib/cartHolds.js</code> (hold), <code>lib/orderService.js</code> (hold → sale, rollback)</td><td><code>tests/cart-holds.test.js</code>, <code>tests/cart-holds-api.test.js</code>, <code>tests/cart-orders.test.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-2.2</td><td>Medium</td><td>Show hold time and Rx status</td><td class="partial">Partial</td><td><code>HoldCountdown.jsx</code> on <code>/cart</code> and <code>/checkout</code>, reservation countdown on <code>/orders/:id/payment</code>; Rx status arrives with Phase D</td><td>Manual walkthrough</td></tr>
+  <tr style="page-break-inside:avoid"><td>NFR-2.3</td><td>Low</td><td>24×7 operational goal</td><td class="partial">Goal</td><td>Stateless API, idempotent operations, graceful shutdown</td><td>Not testable in this prototype</td></tr>
+</table>
+
+<h1>Appendix B. API Reference</h1>
+<table>
+  <caption>Table 34 — API surface (part 1: platform, identity and back office)</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:9%">Method</th><th style="background-color:#e9e9e9; width:33%">Path</th><th style="background-color:#e9e9e9; width:20%">Access</th><th style="background-color:#e9e9e9">Purpose</th></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/health</code></td><td>Public</td><td>Status and database connection state</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/auth/register</code></td><td>Public, rate limited</td><td>Create a customer account (privileged roles rejected)</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/auth/login</code></td><td>Public, rate limited</td><td>Issue an access token and a refresh cookie</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/auth/refresh</code></td><td>Refresh cookie</td><td>Rotate the session and return a new access token</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/auth/logout</code></td><td>Refresh cookie</td><td>Revoke this browser's session</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/auth/me</code></td><td>Signed in</td><td>Current user and permissions</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/auth/sessions</code></td><td>Signed in</td><td>List active sessions, marking the current one</td></tr>
+  <tr style="page-break-inside:avoid"><td>DELETE</td><td><code>/api/auth/sessions/:id</code></td><td>Signed in</td><td>Revoke one session</td></tr>
+  <tr style="page-break-inside:avoid"><td>DELETE</td><td><code>/api/auth/sessions</code></td><td>Signed in</td><td>Revoke every session and invalidate access tokens</td></tr>
+  <tr style="page-break-inside:avoid"><td>PATCH</td><td><code>/api/auth/password</code></td><td>Signed in</td><td>Change the password and revoke all sessions</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/auth/users</code></td><td><code>users:manage</code></td><td>List accounts and roles</td></tr>
+  <tr style="page-break-inside:avoid"><td>PATCH</td><td><code>/api/auth/users/:id/role</code></td><td><code>users:manage</code></td><td>Promote or demote an account (last-admin guard)</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/admin/auth/login</code></td><td>Public</td><td>Back-office sign-in; customers rejected</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/admin/auth/accept-invite</code></td><td>Public + invite token</td><td>Create the invited staff/admin account</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/admin/summary</code></td><td><code>orders:read:all</code></td><td>Counters, revenue, low-stock count and inventory configuration</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/admin/orders</code></td><td><code>orders:read:all</code></td><td>All orders with status filter, search and paging</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/admin/orders/:id</code></td><td><code>orders:read:all</code></td><td>One order with the customer</td></tr>
+  <tr style="page-break-inside:avoid"><td>PATCH</td><td><code>/api/admin/orders/:id/status</code></td><td><code>orders:write</code></td><td>Fulfilment transition from the allowed map</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/admin/customers</code></td><td><code>customers:read</code></td><td>Customers with order count, spend and last order</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/admin/inventory/replenish</code></td><td><code>catalog:write</code></td><td>Restock everything at or below the watermark</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/admin/audit</code></td><td><code>audit:read</code></td><td>Paginated audit log, filterable by action</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/admin/invites</code></td><td><code>invites:manage</code></td><td>Create a single-use invite and return its link once</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/admin/invites</code></td><td><code>invites:manage</code></td><td>List pending invites (optionally closed ones)</td></tr>
+  <tr style="page-break-inside:avoid"><td>DELETE</td><td><code>/api/admin/invites/:id</code></td><td><code>invites:manage</code></td><td>Revoke a pending invite</td></tr>
+</table>
+
+<table>
+  <caption>Table 34 (continued) — API surface (part 2: stock, cart, orders and account)</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:9%">Method</th><th style="background-color:#e9e9e9; width:33%">Path</th><th style="background-color:#e9e9e9; width:20%">Access</th><th style="background-color:#e9e9e9">Purpose</th></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/medicines</code></td><td>Public</td><td>List medicines (newest first)</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/medicines/:id</code></td><td>Public</td><td>Read one medicine</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/medicines</code></td><td><code>catalog:write</code></td><td>Create a medicine (multipart, optional image)</td></tr>
+  <tr style="page-break-inside:avoid"><td>PATCH</td><td><code>/api/medicines/:id</code></td><td><code>catalog:write</code></td><td>Update fields, stock, Rx flag, refill cycle or image</td></tr>
+  <tr style="page-break-inside:avoid"><td>DELETE</td><td><code>/api/medicines/:id</code></td><td><code>catalog:write</code></td><td>Remove a medicine and its image</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/cart</code></td><td>Guest cookie / JWT</td><td>Cart with live prices, stock, hold status and totals</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/cart/items</code></td><td>Guest cookie / JWT</td><td>Add or increment a line; takes a soft hold</td></tr>
+  <tr style="page-break-inside:avoid"><td>PATCH</td><td><code>/api/cart/items/:medicineId</code></td><td>Guest cookie / JWT</td><td>Set an exact quantity (0 removes); the same quantity refreshes a lapsed hold</td></tr>
+  <tr style="page-break-inside:avoid"><td>DELETE</td><td><code>/api/cart/items/:medicineId</code></td><td>Guest cookie / JWT</td><td>Remove a line and release its hold</td></tr>
+  <tr style="page-break-inside:avoid"><td>DELETE</td><td><code>/api/cart</code></td><td>Guest cookie / JWT</td><td>Empty the cart and release every hold it owns</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/cart/merge</code></td><td>JWT</td><td>Merge the guest cart into the account cart (releases the guest's holds first)</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/wishlist</code></td><td>JWT</td><td>Saved medicines with live price, stock and availability</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/wishlist/items</code></td><td>JWT</td><td>Save a medicine (idempotent)</td></tr>
+  <tr style="page-break-inside:avoid"><td>DELETE</td><td><code>/api/wishlist/items/:medicineId</code></td><td>JWT</td><td>Remove one saved medicine</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/wishlist/items/:medicineId/move-to-cart</code></td><td>JWT</td><td>Move to the cart (same stock checks as <code>POST /api/cart/items</code>) and drop it from the wishlist</td></tr>
+  <tr style="page-break-inside:avoid"><td>DELETE</td><td><code>/api/wishlist</code></td><td>JWT</td><td>Empty the wishlist</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/orders</code></td><td>JWT</td><td>Create an order from the cart and reserve stock</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/orders</code></td><td>JWT</td><td>Own order history (newest first)</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/orders/:id</code></td><td>JWT (owner)</td><td>One order; foreign ids return 404</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/orders/:id/pay</code></td><td>JWT (owner)</td><td>Charge through the provider; idempotent; credits points once</td></tr>
+  <tr style="page-break-inside:avoid"><td>POST</td><td><code>/api/orders/:id/cancel</code></td><td>JWT (owner)</td><td>Cancel an unpaid order and release stock</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/api/me/medipoints</code></td><td>JWT</td><td>MediPoints balance, lifetime total and recent ledger entries</td></tr>
+  <tr style="page-break-inside:avoid"><td>GET</td><td><code>/uploads/:file</code></td><td>Public</td><td>Serve an uploaded medicine image</td></tr>
+</table>
+
+<p><strong>Payment request bodies.</strong> <code>POST /api/orders/:id/pay</code> accepts
+<code>{ method: "card", details: { number, expiry, cvv } }</code>,
+<code>{ method: "upi", details: { vpa } }</code>,
+<code>{ method: "netbanking", details: { bank } }</code> and
+<code>{ method: "cod" }</code>. A decline returns <strong>402</strong> with <code>{ error, order }</code>; an unknown method returns
+<strong>400</strong>; an expired or non-payable order returns <strong>409</strong>.</p>
+
+<h1>Appendix C. Configuration Reference</h1>
+<p>All settings are read from <code>backend/.env</code>, which is never committed; <code>.env.example</code> documents every key. In
+production the server refuses to start without <code>JWT_SECRET</code> and <code>COOKIE_SECRET</code>.</p>
+
+<table>
+  <caption>Table 35 — Configuration variables</caption>
+  <tr style="page-break-inside:avoid"><th style="background-color:#e9e9e9; width:26%">Variable</th><th style="background-color:#e9e9e9; width:16%">Default</th><th style="background-color:#e9e9e9">Effect</th></tr>
+  <tr style="page-break-inside:avoid"><td><code>PORT</code></td><td>5000</td><td>HTTP port</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>MONGODB_URI</code></td><td><code>mongodb://127.0.0.1:27017/meditrack</code></td><td>Local or Atlas connection string</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>MONGODB_DB</code></td><td><code>meditrack</code></td><td>Database name used when the URI omits one</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>JWT_SECRET</code></td><td>— (dev fallback, warned)</td><td>Signing key for access tokens; mandatory in production</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>JWT_ACCESS_TTL</code></td><td>15m</td><td>Access-token lifetime (NFR-1.2)</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>REFRESH_TOKEN_TTL_DAYS</code></td><td>30</td><td>Refresh-session lifetime</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>REFRESH_REUSE_GRACE_MS</code></td><td>10000</td><td>Window in which a repeated rotation counts as a two-tab race, not theft</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>COOKIE_SECRET</code></td><td>— (dev fallback, warned)</td><td>Signs the cart and refresh cookies; mandatory in production</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>ADMIN_INVITE_TTL_HOURS</code></td><td>72</td><td>Lifetime of a staff/admin invite</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>AUTH_RATE_LIMIT_WINDOW_MS</code></td><td>900000</td><td>Window for authentication rate limits</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>AUTH_LOGIN_RATE_LIMIT_MAX</code></td><td>10</td><td>Failed sign-ins per IP + e-mail per window</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>AUTH_REGISTER_RATE_LIMIT_MAX</code></td><td>30</td><td>Registrations per IP per window</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>CORS_ORIGIN</code></td><td>(same origin)</td><td>Comma-separated allowed origins for cross-origin deployments</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>TAX_RATE</code></td><td>0.05</td><td>Tax applied to the subtotal</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>DELIVERY_FEE</code></td><td>40</td><td>Delivery charge below the threshold</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>FREE_DELIVERY_OVER</code></td><td>499</td><td>Subtotal at which delivery becomes free</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>PAYMENT_PROVIDER</code></td><td><code>mock</code></td><td>Provider registered in <code>lib/paymentGateway.js</code></td></tr>
+  <tr style="page-break-inside:avoid"><td><code>PAYMENT_MOCK_DELAY_MS</code></td><td>700</td><td>Simulated gateway latency (0 in tests)</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>ORDER_RESERVATION_MINUTES</code></td><td>30</td><td>How long an unpaid order holds its stock</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>CART_HOLD_MINUTES</code></td><td>15</td><td>FR-1.2 lifetime of a cart line's soft hold</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>CART_HOLD_SWEEP_INTERVAL_MS</code></td><td>60000</td><td>FR-1.3 how often the hold sweeper looks for lapsed holds</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>LOW_STOCK_WATERMARK</code></td><td>10</td><td>FR-1.1 threshold that triggers replenishment</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>REPLENISH_TO</code></td><td>100</td><td>FR-1.1 target quantity after replenishment</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>REPLENISH_INTERVAL_MS</code></td><td>60000</td><td>How often the sweep looks for low stock</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>INVENTORY_AUTO_REPLENISH</code></td><td><code>on</code></td><td>Set to <code>off</code> to disable the sweep; the manual endpoint keeps working</td></tr>
+  <tr style="page-break-inside:avoid"><td><code>MEDIPOINTS_PER_100</code></td><td>1</td><td>Points per whole ₹100 of medicine subtotal; 0 disables earning</td></tr>
+</table>
+
+<h1>Appendix D. Test Execution Log</h1>
+<p>The following excerpts are unedited console output from this revision. They are included so that the reported results can be checked
+against the artefacts.</p>
+
+<pre>Excerpt D.1 — full backend suite
+
+$ cd backend &amp;&amp; npm test
+…
+# Subtest: a lapsed hold is released on read and the line stays put (FR-1.3)
+ok - a lapsed hold is released on read and the line stays put (FR-1.3)
+…
+# Subtest: two concurrent sweeps cannot release the same hold twice
+ok - two concurrent sweeps cannot release the same hold twice
+…
+# Subtest: net banking succeeds through a demo bank and stores only the bank code
+ok - net banking succeeds through a demo bank and stores only the bank code
+…
+1..148
+# tests 148
+# suites 0
+# pass 148
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5388.325029</pre>
+
+<pre>Excerpt D.2 — per-suite counts
+
+tests/admin.test.js           # pass 9   # fail 0
+tests/api.test.js             # pass 29  # fail 0
+tests/cart-holds-api.test.js  # pass 12  # fail 0
+tests/cart-holds.test.js      # pass 21  # fail 0
+tests/cart-orders.test.js     # pass 21  # fail 0
+tests/config.test.js          # pass 1   # fail 0
+tests/inventory.test.js       # pass 12  # fail 0
+tests/medipoints.test.js      # pass 9   # fail 0
+tests/mongoErrors.test.js     # pass 8   # fail 0
+tests/sessions.test.js        # pass 8   # fail 0
+tests/wishlist.test.js        # pass 18  # fail 0</pre>
+
+<pre>Excerpt D.3 — frontend production build
+
+$ cd frontend &amp;&amp; npm run build
+&gt; meditrack-frontend@1.0.0 build
+&gt; vite build
+vite v5.4.21 building for production...
+✓ 67 modules transformed.
+dist/index.html                   0.41 kB │ gzip:  0.28 kB
+dist/assets/index-Cvw8i16D.css   23.49 kB │ gzip:  5.06 kB
+dist/assets/index-4D8wIOFf.js   250.82 kB │ gzip: 73.67 kB
+✓ built in 1.14s</pre>
+
+<pre>Excerpt D.4 — manual end-to-end run (server with the sweep enabled)
+
+[inventory] restocked 1: Smoke Rx 250 10→100
+stock after sweep: 100 (expected 100)
+cart add: 201 { total: 302.5 }
+order: 201 { id: '6ae4…', subtotal: 250 }
+netbanking pay: 200 { status: 'paid', method: 'netbanking', brand: 'hdfc' }
+medipoints: 200 { balance: 2, entries: 1 }
+summary inventory config: { lowStockWatermark: 10, replenishTo: 100 } lowStock: 0</pre>
+
+<h1>Appendix E. Reproduction Procedure</h1>
+
+<h3>E.1 Prerequisites</h3>
+<ul>
+  <li>Node.js 18 or later (verified on 22.22.3) with npm; Git; a modern browser.</li>
+  <li>MongoDB 6 or later, either a local server or an Atlas cluster. No installation is needed to run the tests, because they start an
+      in-memory MongoDB.</li>
+</ul>
+
+<h3>E.2 Backend</h3>
+<pre>cd backend
+npm install
+cp .env.example .env          # then set MONGODB_URI, JWT_SECRET, COOKIE_SECRET
+npm run db:check              # optional: verify the connection string before starting
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='a-long-password' \
+  ADMIN_NAME='Store Admin' npm run seed:admin
+npm run dev                   # http://localhost:5000</pre>
+<p>If no MongoDB is available, run <code>npm run db:local</code> in one terminal (it uses the <code>mongod</code> binary downloaded by
+<code>mongodb-memory-server</code> and keeps data in <code>backend/.mongo-data</code>) and start the API from another terminal.</p>
+
+<h3>E.3 Frontend</h3>
+<pre>cd frontend
+npm install
+npm run dev                   # http://localhost:5173, proxies /api and /uploads to :5000</pre>
+
+<h3>E.4 Automated verification</h3>
+<pre>cd backend &amp;&amp; npm test        # expect: # pass 148, # fail 0
+cd frontend &amp;&amp; npm run build  # expect: ✓ built, no warnings</pre>
+
+<h3>E.5 Demonstration script</h3>
+<ol>
+  <li>Sign in at <code>/admin/login</code> as the seeded administrator, then open <strong>Stock → + Add medicine</strong> and add a
+      medicine with stock <strong>10</strong>, a price of ₹250, the Rx box ticked and a refill cycle of 21 days.</li>
+  <li>Wait up to <code>REPLENISH_INTERVAL_MS</code> (or press <strong>Restock low stock</strong>): the quantity moves to 100 and an audit
+      entry <code>medicine.replenish</code> appears under <strong>Audit</strong>.</li>
+  <li>Register a customer at <code>/login</code>, add the medicine to the cart and check out. The payment page shows the reservation
+      countdown.</li>
+  <li>Pay by <strong>Net banking → HDFC</strong>. The order becomes <em>Paid</em>; the receipt shows the MediPoints earned (2 for a ₹250
+      subtotal) and the running balance.</li>
+  <li>Repeat with the demo bank that always declines to show the retry path, and with cash on delivery to show that points are withheld
+      until the money is collected.</li>
+</ol>
+
+<h3>E.6 Verification checklist for a reviewer</h3>
+<ul>
+  <li>Every requirement in Appendix A has a status and, where verified, a named test file.</li>
+  <li><code>npm test</code> in <code>backend</code> reproduces 148 passing cases with no database installation.</li>
+  <li>The one partial requirement (FR-2.6 — the schema-level immutability guard is Phase F) and the three planned ones (FR-1.4, FR-2.1,
+      FR-2.5) are the only gaps, and Table 32 dates them to phases D–F.</li>
+  <li>No secret, token or card number appears in the repository, in the audit log or in an API response.</li>
+</ul>
+
+<br style="page-break-before: always;" />
+<p class="small center">— End of report —</p>
+
+</body>
+</html>
+

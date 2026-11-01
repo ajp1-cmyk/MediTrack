@@ -52,13 +52,14 @@ meditrack/
 │   │   ├── medipoints.js      # earn rule + idempotent credit (FR-2.4)
 │   │   ├── pricing.js         # paise-accurate subtotal, GST, delivery, total
 │   │   ├── cartSession.js     # signed cookie, cart lookup/merge, serialisation
+│   │   ├── cartHolds.js       # stock → held holds, release + sweeper (FR-1.2/1.3)
 │   │   ├── wishlist.js        # save / remove / clear, live serialisation (FR-1.5)
 │   │   ├── sessions.js        # refresh cookie, rotation, reuse detection
 │   │   ├── permissions.js     # role → permission map (shared with the SPA)
 │   │   ├── invites.js         # create/accept/revoke admin+staff invites
 │   │   ├── audit.js           # recordAudit + paginated audit list
-│   │   ├── migrations.js      # one-time data migrations (staff → customer)
-│   │   ├── orderService.js    # checkout, stock reservation/rollback, expiry
+│   │   ├── migrations.js      # one-time data migrations (staff → customer, held counter)
+│   │   ├── orderService.js    # checkout, hold→sale conversion, rollback, expiry
 │   │   ├── paymentGateway.js  # provider registry + charge()
 │   │   └── providers/
 │   │       └── mockPayment.js # sandbox gateway (deterministic test cards)
@@ -77,8 +78,8 @@ meditrack/
 │   │   ├── wishlist.js        # save / remove / clear + move-to-cart (FR-1.5)
 │   │   ├── orders.js          # checkout, order history, pay, cancel
 │   │   └── me.js              # customer account extras (MediPoints)
-│   ├── tests/                 # API tests (stock, auth sessions, admin/roles, cart, payments,
-│   │                          # inventory replenishment, MediPoints, wishlist)
+│   ├── tests/                 # API tests (stock, auth sessions, admin/roles, cart, holds,
+│   │                          # payments, inventory replenishment, MediPoints, wishlist)
 │   ├── uploads/               # (created at runtime) uploaded images
 │   └── .env.example           # environment template
 └── frontend/
@@ -99,6 +100,7 @@ meditrack/
         │   ├── Modal.jsx                  # accessible native <dialog> wrapper
         │   ├── AddToCartDialog.jsx        # quantity + confirmation dialog
         │   ├── QuantityStepper.jsx        # −/+ control
+        │   ├── HoldCountdown.jsx          # live cart-hold timer (FR-1.2/1.3)
         │   └── OrderSummary.jsx           # shared price breakdown
         └── pages/
             ├── Home.jsx                   # landing page + stock list
@@ -247,6 +249,9 @@ FREE_DELIVERY_OVER=499
 PAYMENT_PROVIDER=mock
 PAYMENT_MOCK_DELAY_MS=700
 ORDER_RESERVATION_MINUTES=30
+# Cart soft holds (SRS FR-1.2 / FR-1.3)
+CART_HOLD_MINUTES=15
+CART_HOLD_SWEEP_INTERVAL_MS=60000
 # Inventory replenishment (SRS FR-1.1)
 LOW_STOCK_WATERMARK=10
 REPLENISH_TO=100
@@ -398,9 +403,23 @@ app is same-origin, so cookies work out of the box.
   All three are read from the environment and stored on each order.
 - Expired medicines (`exp` before today) and out-of-stock medicines cannot be added to a
   cart or ordered.
-- On checkout, each line is reserved with a conditional update
-  (`{ stock: { $gte: qty } } → $inc: { stock: -qty }`). If a later line fails, every earlier
-  reservation in that checkout is rolled back, so an order is never partially placed.
+- **Cart soft hold (FR-1.2):** adding a medicine moves the units out of `Medicine.stock`
+  and into `Medicine.held` in one conditional update
+  (`{ stock: { $gte: qty } } → $inc: { stock: -qty, held: +qty }`), so two carts can never
+  reserve the same unit. The hold lasts `CART_HOLD_MINUTES` (default **15**) and is
+  re-clocked whenever the line changes or is refreshed. `stock` is therefore *available*
+  units; `stock + held` is the physical quantity on hand.
+- **Releasing a hold (FR-1.3):** when it lapses the units go back to `stock` — by the
+  background sweep (`CART_HOLD_SWEEP_INTERVAL_MS`), by the next read of that cart, or by
+  the cart being emptied. The line **stays in the cart**, flagged `holdExpired`, and the
+  customer can press **Refresh hold** (a `PATCH` with the quantity the line already has).
+  Releasing is claimed first (the line's `holdExpiresAt` is cleared atomically), so a
+  sweeper, a cart read and a checkout cannot release the same hold twice.
+- On checkout each line's hold is **converted into a sale** (`$inc: { held: -qty }`, the
+  shelf was already decremented when the hold was taken). A line whose hold lapsed is
+  reserved from `stock` instead. If any line fails, every earlier counter move in that
+  checkout is undone (a converted hold becomes a hold again), so an order is never
+  partially placed and the customer keeps the reservation they had.
 - A pending order holds its stock for `ORDER_RESERVATION_MINUTES` (default 30). Paying
   clears the deadline; cancelling or letting it lapse releases the stock exactly once
   (atomic status transition, so a race cannot double-restore).
@@ -562,12 +581,19 @@ Rules of thumb for MongoDB:
 
 | Method | Endpoint | Access | Description |
 | ------ | -------- | ------ | ----------- |
-| GET | `/api/cart` | cookie / JWT | Items with live price, stock, availability and totals |
-| POST | `/api/cart/items` | cookie / JWT | `{ medicineId, quantity }` — add or increment a line |
-| PATCH | `/api/cart/items/:medicineId` | cookie / JWT | `{ quantity }` — set an exact quantity (`0` removes) |
-| DELETE | `/api/cart/items/:medicineId` | cookie / JWT | Remove one line |
-| DELETE | `/api/cart` | cookie / JWT | Empty the cart |
-| POST | `/api/cart/merge` | **JWT** | Merge the guest cart into the account cart |
+| GET | `/api/cart` | cookie / JWT | Items with live price, stock, availability, hold status and totals |
+| POST | `/api/cart/items` | cookie / JWT | `{ medicineId, quantity }` — add or increment a line (takes a soft hold) |
+| PATCH | `/api/cart/items/:medicineId` | cookie / JWT | `{ quantity }` — set an exact quantity (`0` removes); the same quantity refreshes a lapsed hold |
+| DELETE | `/api/cart/items/:medicineId` | cookie / JWT | Remove one line and release its hold |
+| DELETE | `/api/cart` | cookie / JWT | Empty the cart and release every hold it owns |
+| POST | `/api/cart/merge` | **JWT** | Merge the guest cart into the account cart (releases the guest's holds first) |
+
+A cart line holds its units for `CART_HOLD_MINUTES` (default 15). In the response, `stock` is
+what **that line** can still buy (shelf stock plus the units it already holds), `held` /
+`holdActive` / `heldUntil` / `holdSecondsLeft` describe its hold, and `holdExpired: true` means
+the line is still in the cart but is no longer reserving anything — the UI then offers
+**Refresh hold**. The cart as a whole reports the earliest deadline (`holdExpiresAt`,
+`holdSecondsLeft`) and `hasExpiredHolds`.
 
 Every mutation returns the freshly serialised cart:
 
@@ -584,7 +610,12 @@ Every mutation returns the freshly serialised cart:
       "available": true,
       "expired": false,
       "issue": null,
-      "lineTotal": 300.75
+      "lineTotal": 300.75,
+      "held": 3,
+      "holdActive": true,
+      "heldUntil": "2026-11-01T13:19:00.000Z",
+      "holdSecondsLeft": 842,
+      "holdExpired": false
     }
   ],
   "totals": {
@@ -600,6 +631,9 @@ Every mutation returns the freshly serialised cart:
   "itemCount": 3,
   "lineCount": 1,
   "hasIssues": false,
+  "hasExpiredHolds": false,
+  "holdExpiresAt": "2026-11-01T13:19:00.000Z",
+  "holdSecondsLeft": 842,
   "updatedAt": "…"
 }
 ```
@@ -741,6 +775,13 @@ per-₹100 rule, credit-only-after-payment, one entry per order, COD/failed paym
 nothing and per-customer isolation. `tests/wishlist.test.js` covers saving, idempotency,
 live price/stock/expiry flags, per-account privacy, move-to-cart (including incrementing an
 existing cart line and refusing at the stock limit), removal, clearing and deleted medicines.
+`tests/cart-holds.test.js` covers the hold service itself (atomic stock → held move, overdraw
+refusal, two carts racing for the last units, release guards, hold → sale conversion and its
+restore, sweeper idempotency and concurrency, and the legacy-row migration), while
+`tests/cart-holds-api.test.js` covers the same behaviour over HTTP (hold on add, increment,
+quantity deltas, removal, clearing, the per-line limit, a second shopper being locked out,
+lazy expiry, hold renewal, the sign-in merge, checkout/cancel and a failed checkout rolling
+the earlier holds back).
 **No MongoDB installation is required to run it.**
 
 ## SRS traceability
@@ -750,8 +791,8 @@ Where each requirement is implemented. Update the "Status" column as later phase
 | Requirement | Status | Implementation | Test |
 | ----------- | ------ | -------------- | ---- |
 | FR-1.1 replenish at watermark 10 → 100 | ✅ | `lib/inventory.js`, sweep in `server.js`, `POST /api/admin/inventory/replenish` | `tests/inventory.test.js` |
-| FR-1.2 atomic soft hold on add-to-cart | 🚧 planned (Phase C) | stock is currently reserved at checkout (`lib/orderService.js`) | `tests/cart-orders.test.js` |
-| FR-1.3 release an expired hold | ⚠️ partial | order reservations expire (`expireStaleOrders`); cart holds are Phase C | `tests/cart-orders.test.js` |
+| FR-1.2 atomic soft hold on add-to-cart | ✅ | `lib/cartHolds.js`, `setLineQuantity()` in `lib/cartSession.js`, `routes/cart.js` | `tests/cart-holds.test.js`, `tests/cart-holds-api.test.js` |
+| FR-1.3 release an expired hold | ✅ | `releaseExpiredHolds()` + sweeper in `server.js`, lazy release in `loadLiveCart()` | `tests/cart-holds.test.js`, `tests/cart-holds-api.test.js` |
 | FR-1.4 flag Rx-only medicines and block billing | 🚧 planned (Phase D) | `prescriptionRequired` field added in Phase A | `tests/inventory.test.js` |
 | FR-1.5 Wishlist separate from Cart | ✅ | `models/Wishlist.js`, `lib/wishlist.js`, `routes/wishlist.js`, `pages/Wishlist.jsx`, `context/WishlistContext.jsx` | `tests/wishlist.test.js` |
 | FR-1.6 customer registration | ✅ | `routes/auth.js` | `tests/api.test.js` |
@@ -766,8 +807,8 @@ Where each requirement is implemented. Update the "Status" column as later phase
 | NFR-1.2 bcrypt + JWT with expiry | ✅ | `models/User.js`, `lib/sessions.js` | `tests/sessions.test.js` |
 | NFR-1.3 append-only audit log | ✅ / ⚠️ | `lib/audit.js` (no update/delete routes); model guard in Phase F | `tests/admin.test.js`, `tests/inventory.test.js` |
 | NFR-1.4 tokens / Rx data encrypted at rest | ⚠️ partial | no card data is stored (brand + last4 only); Rx files are Phase D | — |
-| NFR-2.1 atomic inventory reservation | ✅ | `lib/orderService.js` conditional update + rollback | `tests/cart-orders.test.js` |
-| NFR-2.2 hold time + Rx status shown at checkout | ⚠️ partial | reservation countdown on `/orders/:id/payment`; cart holds + Rx status in Phases C/D | — |
+| NFR-2.1 atomic inventory reservation | ✅ | one conditional update per line: `lib/cartHolds.js` (hold), `lib/orderService.js` (hold → sale + rollback) | `tests/cart-holds.test.js`, `tests/cart-holds-api.test.js` |
+| NFR-2.2 hold time + Rx status shown at checkout | ⚠️ partial | cart hold countdown on `/cart` and `/checkout`, reservation countdown on `/orders/:id/payment`; Rx status is Phase D | manual walkthrough |
 | §4.5 simulated QR/barcode | 🚧 planned (Phase F) | — | — |
 
 ## Notes
