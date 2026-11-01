@@ -62,6 +62,15 @@ function isHoldExpired(holdExpiresAt, now = new Date()) {
   return Boolean(holdExpiresAt) && new Date(holdExpiresAt).getTime() <= now.getTime();
 }
 
+/**
+ * Units a cart line is currently holding: 0 when the marker is absent or has
+ * lapsed. A lapsed line keeps its quantity in the cart but holds no stock.
+ */
+function heldQuantity(item, now = new Date()) {
+  if (!item || !item.holdExpiresAt) return 0;
+  return isHoldExpired(item.holdExpiresAt, now) ? 0 : item.quantity;
+}
+
 /** Whole units, or a 400 for anything a route could be handed. */
 function readHoldQuantity(quantity) {
   const amount = Number(quantity);
@@ -128,6 +137,24 @@ async function convertHoldToSale(medicineId, quantity) {
   return Medicine.findOneAndUpdate(
     { _id: medicineId, held: { $gte: amount } },
     { $inc: { held: -amount } },
+    { new: true }
+  );
+}
+
+/**
+ * Put units back into `held` without touching `stock`: the exact inverse of
+ * `convertHoldToSale()`. Used to undo a conversion when a later line of the same
+ * checkout fails, so the customer keeps the promise they had before.
+ *
+ * @returns {Promise<import('../models/Medicine')|null>}
+ */
+async function restoreHold(medicineId, quantity) {
+  const amount = Number(quantity);
+  if (!Number.isInteger(amount) || amount < 1) return null;
+
+  return Medicine.findOneAndUpdate(
+    { _id: medicineId },
+    { $inc: { held: amount } },
     { new: true }
   );
 }
@@ -210,6 +237,21 @@ async function releaseExpiredHolds({ now = new Date(), cartId = null } = {}) {
 }
 
 /**
+ * Release one line's hold, whether it has lapsed or not. Used when the customer
+ * removes the line from the cart or empties the cart.
+ *
+ * @returns {Promise<{ medicine: unknown, quantity: number }|null>} null when the
+ *   line was not holding anything (already released, or the guest cart is gone)
+ */
+async function releaseLineHold(cartId, medicineId, { now = new Date() } = {}) {
+  const line = await claimHoldLine({ cartId, medicineId, now, expiredOnly: false });
+  if (!line) return null;
+
+  await releaseHold(line.medicine, line.quantity);
+  return line;
+}
+
+/**
  * Release every **live** hold on one cart. Used when the cart is emptied or a
  * guest cart is merged into an account cart, where the promises must not be
  * carried across to a different cart document.
@@ -226,11 +268,8 @@ async function releaseCartHolds(cart, { now = new Date() } = {}) {
   for (const item of cart.items) {
     if (!item.holdExpiresAt || isHoldExpired(item.holdExpiresAt, now)) continue;
 
-    const line = await claimHoldLine({ cartId: cart._id, medicineId: item.medicine, now });
-    if (!line) continue;
-
-    await releaseHold(line.medicine, line.quantity);
-    released.push(line);
+    const line = await releaseLineHold(cart._id, item.medicine, { now });
+    if (line) released.push(line);
   }
 
   return released;
@@ -271,12 +310,15 @@ module.exports = {
   holdDurationMs,
   holdExpiry,
   isHoldExpired,
+  heldQuantity,
   acquireHold,
   releaseHold,
   convertHoldToSale,
+  restoreHold,
   claimHoldLine,
   releaseExpiredLine,
   releaseExpiredHolds,
+  releaseLineHold,
   releaseCartHolds,
   startHoldSweeper,
 };

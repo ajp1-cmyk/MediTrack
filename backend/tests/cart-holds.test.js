@@ -357,3 +357,15 @@ test('the Phase C migration pins a pre-existing medicine to held = 0', async () 
   assert.equal(held.held, 1);
 });
 
+test('restoring a converted hold puts the promise back without touching stock', async () => {
+  const medicine = await makeMedicine({ stock: 10 });
+  await holds.acquireHold(medicine._id, 2); // stock 8, held 2
+  await holds.convertHoldToSale(medicine._id, 2); // stock 8, held 0
+
+  const restored = await holds.restoreHold(medicine._id, 2);
+
+  assert.equal(restored.stock, 8, 'stock never moves for a hold');
+  assert.equal(restored.held, 2);
+  assert.equal(restored.stock + restored.held, 10, 'the physical count is intact again');
+});
+

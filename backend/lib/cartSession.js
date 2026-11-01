@@ -10,7 +10,15 @@ const mongoose = require('mongoose');
 const Cart = require('../models/Cart');
 const Medicine = require('../models/Medicine');
 const { computeTotals } = require('./pricing');
-const { isExpired, sellabilityIssue } = require('./availability');
+const { isExpired } = require('./availability');
+const {
+  acquireHold,
+  releaseHold,
+  releaseExpiredHolds,
+  releaseCartHolds,
+  holdExpiry,
+  heldQuantity,
+} = require('./cartHolds');
 const { httpError } = require('./errors');
 
 const COOKIE_NAME = 'mt_cart';
@@ -120,6 +128,146 @@ function touchCart(cart) {
 }
 
 /**
+ * Units this line can still buy right now: shelf stock plus what it holds.
+ */
+function availableQuantityForLine(medicine, item, now = new Date()) {
+  return medicine.stock + heldQuantity(item, now);
+}
+
+/**
+ * Find the caller's cart and release any hold that has already lapsed, so every
+ * caller works with the cart exactly as the sweeper would leave it (FR-1.3).
+ *
+ * @returns {Promise<import('../models/Cart')|null>}
+ */
+async function loadLiveCart(req, { now = new Date() } = {}) {
+  const cart = await findCart(req);
+  if (!cart) return null;
+
+  const { released } = await releaseExpiredHolds({ cartId: cart._id, now });
+  // The in-memory document still carries the released markers, so re-read it.
+  return released.length > 0 ? findCart(req) : cart;
+}
+
+/**
+ * Bring one cart line to exactly `quantity`, taking or releasing the difference
+ * in held units and renewing the hold clock (FR-1.2).
+ *
+ * The counter move happens before the cart is saved and is compensated if the
+ * save fails, so the reservation can never leak into `held` unnoticed.
+ *
+ * @param {import('../models/Cart')} cart
+ * @param {import('../models/Medicine')} medicine
+ * @param {number} quantity at least 1 (removal is `removeCartLine`)
+ * @param {object} [options]
+ * @param {Date} [options.now] injectable clock (used by tests)
+ */
+async function setLineQuantity(cart, medicine, quantity, { now = new Date() } = {}) {
+  const line = cart.items.find((item) => item.medicine.equals(medicine._id));
+  const held = heldQuantity(line, now);
+  const available = medicine.stock + held;
+
+  if (quantity > available) {
+    throw httpError(
+      409,
+      `Only ${available} unit${available === 1 ? '' : 's'} of "${medicine.name}" left in stock`
+    );
+  }
+
+  const delta = quantity - held;
+
+  if (delta > 0) {
+    const acquired = await acquireHold(medicine._id, delta);
+    if (!acquired) {
+      // Another cart got there first between the read and the conditional write.
+      const fresh = await Medicine.findById(medicine._id);
+      const left = fresh ? fresh.stock + held : 0;
+      throw httpError(
+        409,
+        `Only ${left} unit${left === 1 ? '' : 's'} of "${medicine.name}" left in stock`
+      );
+    }
+  } else if (delta < 0) {
+    await releaseHold(medicine._id, -delta);
+  }
+
+  const previous = line ? { quantity: line.quantity, holdExpiresAt: line.holdExpiresAt } : null;
+
+  if (line) {
+    line.quantity = quantity;
+    line.holdExpiresAt = holdExpiry(now);
+  } else {
+    cart.items.push({ medicine: medicine._id, quantity, holdExpiresAt: holdExpiry(now) });
+  }
+
+  touchCart(cart);
+
+  try {
+    await cart.save();
+  } catch (err) {
+    // The counters moved but the cart did not: put them back. Best effort — the
+    // hold sweeper is the backstop if this compensating write also fails.
+    if (delta > 0) await releaseHold(medicine._id, delta);
+    else if (delta < 0) await acquireHold(medicine._id, -delta);
+
+    if (line) {
+      line.quantity = previous.quantity;
+      line.holdExpiresAt = previous.holdExpiresAt;
+    } else {
+      cart.items = cart.items.filter((item) => !item.medicine.equals(medicine._id));
+    }
+    throw err;
+  }
+}
+
+/**
+ * Drop one line from the cart and hand its held units back (FR-1.3).
+ *
+ * The marker is cleared with the save, and the units are returned afterwards, so
+ * a crash in between leaks a hold rather than overselling.
+ *
+ * @returns {Promise<boolean>} whether a line was removed
+ */
+async function removeCartLine(cart, medicineId, { now = new Date() } = {}) {
+  const line = cart.items.find((item) => String(item.medicine) === String(medicineId));
+  if (!line) return false;
+
+  const held = heldQuantity(line, now);
+
+  cart.items = cart.items.filter((item) => String(item.medicine) !== String(medicineId));
+  touchCart(cart);
+  await cart.save();
+
+  if (held > 0) await releaseHold(line.medicine, held);
+  return true;
+}
+
+/**
+ * Empty the caller's cart, releasing every hold it owns.
+ * Guests lose the cart document (and the cookie) entirely.
+ */
+async function clearCart(req, res) {
+  const cart = await findCart(req);
+
+  if (!cart) {
+    clearCartCookie(res);
+    return;
+  }
+
+  // Clear the markers first: a later failure can then only leak units, never
+  // release the same hold twice.
+  await releaseCartHolds(cart);
+
+  if (cart.user) {
+    cart.items = [];
+    await cart.save();
+  } else {
+    await cart.deleteOne();
+    clearCartCookie(res);
+  }
+}
+
+/**
  * Add `quantity` of one medicine to the caller's cart, enforcing live stock.
  *
  * Shared by POST /api/cart/items and the wishlist "move to cart" action
@@ -149,41 +297,40 @@ async function addItemToCart(req, res, { medicineId, quantity = 1 } = {}) {
     throw httpError(404, 'Medicine not found');
   }
 
-  const issue = sellabilityIssue(medicine);
-  if (issue) {
-    throw httpError(409, issue);
-  }
-
   const cart = await getOrCreateCart(req, res);
   const line = cart.items.find((item) => item.medicine.equals(medicine._id));
+  const heldNow = heldQuantity(line);
+
+  // Expired stock is never sellable. "Out of stock" only blocks a line that is
+  // not already holding units — a line that holds them can still be adjusted.
+  if (isExpired(medicine)) {
+    throw httpError(409, `"${medicine.name}" has expired and cannot be sold.`);
+  }
+  if (medicine.stock <= 0 && heldNow === 0) {
+    throw httpError(409, `"${medicine.name}" is out of stock.`);
+  }
+
   const nextQuantity = (line ? line.quantity : 0) + amount;
-
-  if (nextQuantity > medicine.stock) {
-    throw httpError(
-      409,
-      `Only ${medicine.stock} unit${medicine.stock === 1 ? '' : 's'} of "${medicine.name}" left in stock`
-    );
+  if (nextQuantity > MAX_LINE_QUANTITY) {
+    throw httpError(400, `A cart line cannot hold more than ${MAX_LINE_QUANTITY} units`);
   }
 
-  if (line) {
-    line.quantity = nextQuantity;
-  } else {
-    cart.items.push({ medicine: medicine._id, quantity: amount });
-  }
-
-  touchCart(cart);
-  await cart.save();
+  // setLineQuantity() takes the hold (FR-1.2) and re-clocks it.
+  await setLineQuantity(cart, medicine, nextQuantity);
 
   return { cart, medicine };
 }
 
 /**
  * Move everything in the guest cart into the signed-in user's cart, combining
- * duplicate lines and never exceeding current stock.
+ * duplicate lines and never exceeding current availability (FR-1.5 sign-in flow).
+ *
+ * The guest's holds end with the guest cart: they are released first, then the
+ * merged lines take their own holds, so units are never promised twice.
  *
  * @returns {Promise<import('../models/Cart')>} the user's cart
  */
-async function mergeGuestCart(req, res) {
+async function mergeGuestCart(req, res, { now = new Date() } = {}) {
   const userCart = await Cart.findOneAndUpdate(
     { user: req.user._id },
     { $setOnInsert: { user: req.user._id, items: [], expiresAt: null } },
@@ -195,31 +342,63 @@ async function mergeGuestCart(req, res) {
     const guestCart = await Cart.findOne({ tokenHash: hashToken(guestToken) });
 
     if (guestCart && String(guestCart._id) !== String(userCart._id)) {
+      await releaseCartHolds(guestCart, { now });
+
       const medicines = await Medicine.find({
         _id: { $in: guestCart.items.map((item) => item.medicine) },
       }).select('name stock exp');
       const byId = new Map(medicines.map((medicine) => [String(medicine._id), medicine]));
 
-      for (const guestItem of guestCart.items) {
-        const medicine = byId.get(String(guestItem.medicine));
-        if (!medicine || isExpired(medicine) || medicine.stock < 1) continue;
+      const taken = [];
+      try {
+        for (const guestItem of guestCart.items) {
+          const medicine = byId.get(String(guestItem.medicine));
+          if (!medicine || isExpired(medicine, now)) continue;
 
-        const existing = userCart.items.find((item) => item.medicine.equals(guestItem.medicine));
-        const combined = Math.min(
-          (existing ? existing.quantity : 0) + guestItem.quantity,
-          medicine.stock,
-          MAX_LINE_QUANTITY
-        );
-        if (combined < 1) continue;
+          const existing = userCart.items.find((item) =>
+            item.medicine.equals(guestItem.medicine)
+          );
+          const alreadyHeld = heldQuantity(existing, now);
 
-        if (existing) {
-          existing.quantity = combined;
-        } else {
-          userCart.items.push({ medicine: guestItem.medicine, quantity: combined });
+          const target = Math.min(
+            (existing ? existing.quantity : 0) + guestItem.quantity,
+            medicine.stock + alreadyHeld,
+            MAX_LINE_QUANTITY
+          );
+          if (target < 1) continue;
+
+          // Hold what the line did not already hold. If another cart took those
+          // units first the line merges unheld, and the cart view flags it.
+          const wanted = Math.max(0, target - alreadyHeld);
+          let extra = 0;
+          if (wanted > 0) {
+            const acquired = await acquireHold(medicine._id, wanted);
+            if (acquired) {
+              extra = wanted;
+              taken.push({ medicine: medicine._id, quantity: wanted });
+            }
+          }
+
+          const holdExpiresAt = alreadyHeld + extra > 0 ? holdExpiry(now) : null;
+          if (existing) {
+            existing.quantity = target;
+            existing.holdExpiresAt = holdExpiresAt;
+          } else {
+            userCart.items.push({
+              medicine: guestItem.medicine,
+              quantity: target,
+              holdExpiresAt,
+            });
+          }
         }
+
+        await userCart.save();
+      } catch (err) {
+        // The merge failed, so give back the units it had already reserved.
+        for (const line of taken) await releaseHold(line.medicine, line.quantity);
+        throw err;
       }
 
-      await userCart.save();
       await Cart.deleteOne({ _id: guestCart._id });
     }
   }
@@ -244,6 +423,9 @@ async function serializeCart(cart, { now = new Date() } = {}) {
       itemCount: 0,
       lineCount: 0,
       hasIssues: false,
+      hasExpiredHolds: false,
+      holdExpiresAt: null,
+      holdSecondsLeft: 0,
       updatedAt: cart ? cart.updated_at : null,
     };
   }
@@ -256,6 +438,7 @@ async function serializeCart(cart, { now = new Date() } = {}) {
   const lines = [];
   const items = cart.items.map((item) => {
     const medicine = byId.get(String(item.medicine));
+    const held = heldQuantity(item, now);
 
     if (!medicine) {
       return {
@@ -269,11 +452,19 @@ async function serializeCart(cart, { now = new Date() } = {}) {
         expired: false,
         issue: 'This medicine is no longer available.',
         lineTotal: 0,
+        held,
+        holdActive: false,
+        heldUntil: null,
+        holdSecondsLeft: 0,
+        holdExpired: false,
       };
     }
 
+    // `stock` is what this line can still buy: shelf stock plus the units the
+    // line already holds, so a customer is never told they own too many.
+    const availableStock = availableQuantityForLine(medicine, item, now);
     const expired = isExpired(medicine, now);
-    const billableQuantity = expired ? 0 : Math.min(item.quantity, medicine.stock);
+    const billableQuantity = expired ? 0 : Math.min(item.quantity, availableStock);
     const lineTotalPaise = Math.round(medicine.price * 100) * billableQuantity;
 
     if (billableQuantity > 0) {
@@ -283,11 +474,14 @@ async function serializeCart(cart, { now = new Date() } = {}) {
     let issue = null;
     if (expired) {
       issue = 'This medicine has expired and cannot be ordered.';
-    } else if (medicine.stock <= 0) {
+    } else if (availableStock <= 0) {
       issue = 'Out of stock.';
-    } else if (item.quantity > medicine.stock) {
-      issue = `Only ${medicine.stock} left in stock.`;
+    } else if (item.quantity > availableStock) {
+      issue = `Only ${availableStock} left in stock.`;
     }
+
+    const holdActive = held > 0;
+    const heldUntil = holdActive ? new Date(item.holdExpiresAt) : null;
 
     return {
       medicineId: medicine._id.toString(),
@@ -295,15 +489,33 @@ async function serializeCart(cart, { now = new Date() } = {}) {
       image: medicine.image,
       price: medicine.price,
       quantity: item.quantity,
-      stock: medicine.stock,
+      stock: availableStock,
       available: billableQuantity >= item.quantity,
       expired,
       issue,
       lineTotal: Math.round(lineTotalPaise) / 100,
+      // FR-1.2 / FR-1.3: what this line is holding, and for how much longer.
+      held,
+      holdActive,
+      heldUntil,
+      holdSecondsLeft: heldUntil
+        ? Math.max(0, Math.ceil((heldUntil.getTime() - now.getTime()) / 1000))
+        : 0,
+      // True when the line is in the cart but is not holding stock any more, so
+      // the customer is offered a "refresh hold" action instead of losing it.
+      holdExpired: !holdActive,
     };
   });
 
   const totals = computeTotals(lines);
+
+  // Cart-level hold summary (NFR-2.2): the earliest deadline is the one that
+  // matters, because losing it releases that line's units first.
+  const activeHolds = items.filter((item) => item.holdActive && item.heldUntil);
+  const holdExpiresAt =
+    activeHolds.length > 0
+      ? new Date(Math.min(...activeHolds.map((item) => item.heldUntil.getTime())))
+      : null;
 
   return {
     items,
@@ -311,6 +523,11 @@ async function serializeCart(cart, { now = new Date() } = {}) {
     itemCount: totals.itemCount,
     lineCount: items.length,
     hasIssues: items.some((item) => item.issue !== null),
+    hasExpiredHolds: items.some((item) => item.holdExpired),
+    holdExpiresAt,
+    holdSecondsLeft: holdExpiresAt
+      ? Math.max(0, Math.ceil((holdExpiresAt.getTime() - now.getTime()) / 1000))
+      : 0,
     updatedAt: cart.updated_at,
   };
 }
@@ -330,8 +547,14 @@ module.exports = {
   setCartCookie,
   clearCartCookie,
   findCart,
+  loadLiveCart,
   getOrCreateCart,
+  heldQuantity,
+  availableQuantityForLine,
+  setLineQuantity,
   addItemToCart,
+  removeCartLine,
+  clearCart,
   touchCart,
   mergeGuestCart,
   serializeCart,

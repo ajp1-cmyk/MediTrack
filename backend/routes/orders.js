@@ -11,7 +11,7 @@ const Order = require('../models/Order');
 const { requireAuth } = require('../middleware/auth');
 const { rejectFormBody } = require('../middleware/requestGuards');
 const { httpError, asyncHandler } = require('../lib/errors');
-const { findCart } = require('../lib/cartSession');
+const { loadLiveCart } = require('../lib/cartSession');
 const { creditOrderPoints } = require('../lib/medipoints');
 const {
   createOrderFromCart,
@@ -51,7 +51,9 @@ async function releaseExpiredForUser(userId, extraFilter = {}) {
 router.post(
   '/',
   asyncHandler(async (req, res) => {
-    const cart = await findCart(req);
+    // Lapsed holds are released first, so a hold that ran out is not mistaken
+    // for a live reservation; the checkout then reserves those units afresh.
+    const cart = await loadLiveCart(req);
     const order = await createOrderFromCart({
       cart,
       user: req.user,

@@ -19,12 +19,15 @@ const wishlistRouter = require('./routes/wishlist');
 const { getCookieSecret } = require('./lib/cartSession');
 const { runMigrations } = require('./lib/migrations');
 const { inventoryConfig, replenishLowStock, startReplenishSweeper } = require('./lib/inventory');
+const { startHoldSweeper } = require('./lib/cartHolds');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Handle for the background low-stock sweep (FR-1.1); cleared on shutdown.
 let replenishTimer = null;
+// Handle for the background cart-hold sweep (FR-1.3); cleared on shutdown.
+let holdTimer = null;
 
 // Standard security headers (X-Content-Type-Options, Referrer-Policy, HSTS, …).
 // This service only returns JSON and uploaded images, so the default
@@ -206,6 +209,10 @@ async function start(port = PORT) {
     }
   }
   replenishTimer = startReplenishSweeper();
+  // FR-1.3: give back the units of every cart hold that lapses. Like the
+  // replenishment sweep this timer is unref'd, and a cart read releases its own
+  // lapsed holds immediately, so the timer is only a backstop.
+  holdTimer = startHoldSweeper();
 
   return new Promise((resolve, reject) => {
     const server = app.listen(port, () => {
@@ -213,11 +220,15 @@ async function start(port = PORT) {
       resolve(server);
     });
 
-    // Stop the background sweep with the server (used by tests and shutdown).
+    // Stop the background sweeps with the server (used by tests and shutdown).
     server.on('close', () => {
       if (replenishTimer) {
         clearInterval(replenishTimer);
         replenishTimer = null;
+      }
+      if (holdTimer) {
+        clearInterval(holdTimer);
+        holdTimer = null;
       }
     });
 
@@ -256,6 +267,10 @@ if (require.main === module) {
     if (replenishTimer) {
       clearInterval(replenishTimer);
       replenishTimer = null;
+    }
+    if (holdTimer) {
+      clearInterval(holdTimer);
+      holdTimer = null;
     }
     await disconnectDB();
     process.exit(0);

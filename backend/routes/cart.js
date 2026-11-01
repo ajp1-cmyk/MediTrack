@@ -17,12 +17,14 @@ const Medicine = require('../models/Medicine');
 const { optionalAuth, requireAuth } = require('../middleware/auth');
 const { rejectFormBody } = require('../middleware/requestGuards');
 const { httpError, asyncHandler } = require('../lib/errors');
-const { sellabilityIssue } = require('../lib/availability');
+const { isExpired } = require('../lib/availability');
 const {
   MAX_LINE_QUANTITY,
-  findCart,
+  loadLiveCart,
   addItemToCart,
-  touchCart,
+  setLineQuantity,
+  removeCartLine,
+  clearCart,
   mergeGuestCart,
   serializeCart,
   hasCartCookie,
@@ -57,19 +59,23 @@ async function loadMedicine(medicineId) {
   return medicine;
 }
 
-/** Refuse expired or out-of-stock medicines before they reach a cart. */
-function assertSellable(medicine) {
-  const issue = sellabilityIssue(medicine);
-  if (issue) {
-    throw httpError(409, issue);
+/**
+ * Refuse an expired medicine. Stock is decided per line instead of here: a line
+ * that already holds units may still see `stock` at zero (FR-1.2).
+ */
+function assertNotExpired(medicine) {
+  if (isExpired(medicine)) {
+    throw httpError(409, `"${medicine.name}" has expired and cannot be sold.`);
   }
 }
 
-// GET /api/cart — the current cart with live prices, stock and totals.
+// GET /api/cart — the current cart with live prices, stock, holds and totals.
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    const cart = await findCart(req);
+    // Lapsed holds are released here as well as by the background sweeper, so a
+    // stale hold is never presented as active (FR-1.3).
+    const cart = await loadLiveCart(req);
 
     // A stale cookie (cart deleted by the TTL index) should not linger.
     if (!cart && !req.user && hasCartCookie(req)) {
@@ -101,7 +107,7 @@ router.patch(
   '/items/:medicineId',
   asyncHandler(async (req, res) => {
     const quantity = readQuantity((req.body || {}).quantity, { min: 0 });
-    const cart = await findCart(req);
+    const cart = await loadLiveCart(req);
 
     if (!cart) {
       throw httpError(404, 'This medicine is not in your cart');
@@ -113,63 +119,41 @@ router.patch(
     }
 
     if (quantity === 0) {
-      cart.items = cart.items.filter((item) => !item.medicine.equals(line.medicine));
+      // Removing the line hands its held units back (FR-1.3).
+      await removeCartLine(cart, req.params.medicineId);
     } else {
       const medicine = await loadMedicine(line.medicine);
-      assertSellable(medicine);
-      if (quantity > medicine.stock) {
-        throw httpError(
-          409,
-          `Only ${medicine.stock} unit${medicine.stock === 1 ? '' : 's'} of "${medicine.name}" left in stock`
-        );
-      }
-      line.quantity = quantity;
+      assertNotExpired(medicine);
+      // Takes or releases the difference, and re-clocks this line's hold.
+      await setLineQuantity(cart, medicine, quantity);
     }
-
-    touchCart(cart);
-    await cart.save();
 
     res.json(await serializeCart(cart));
   })
 );
 
-// DELETE /api/cart/items/:medicineId — remove one medicine.
+// DELETE /api/cart/items/:medicineId — remove one medicine and release its hold.
 router.delete(
   '/items/:medicineId',
   asyncHandler(async (req, res) => {
-    const cart = await findCart(req);
+    const cart = await loadLiveCart(req);
     if (!cart) {
       res.json(await serializeCart(null));
       return;
     }
 
-    cart.items = cart.items.filter(
-      (item) => String(item.medicine) !== req.params.medicineId
-    );
-    touchCart(cart);
-    await cart.save();
+    await removeCartLine(cart, req.params.medicineId);
 
     res.json(await serializeCart(cart));
   })
 );
 
-// DELETE /api/cart — empty the cart. For guests the cart document is removed
-// too, so the cookie can be cleared safely.
+// DELETE /api/cart — empty the cart and release every hold it owns. For guests
+// the cart document is removed too, so the cookie can be cleared safely.
 router.delete(
   '/',
   asyncHandler(async (req, res) => {
-    const cart = await findCart(req);
-
-    if (cart && cart.user) {
-      cart.items = [];
-      await cart.save();
-    } else if (cart) {
-      await cart.deleteOne();
-      clearCartCookie(res);
-    } else {
-      clearCartCookie(res);
-    }
-
+    await clearCart(req, res);
     res.json(await serializeCart(null));
   })
 );

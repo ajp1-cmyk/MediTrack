@@ -321,7 +321,7 @@ test('creating an order requires a signed-in user', async () => {
   assert.equal(res.status, 401);
 });
 
-test('checkout snapshots the cart and reserves stock', async () => {
+test('checkout converts the cart hold into a sale', async () => {
   const before = await api(`/api/medicines/${cartMedicine.body.id}`);
 
   const res = await api('/api/orders', {
@@ -345,7 +345,19 @@ test('checkout snapshots the cart and reserves stock', async () => {
   assert.equal(firstOrder.shippingAddress.country, 'India');
 
   const after = await api(`/api/medicines/${cartMedicine.body.id}`);
-  assert.equal(after.body.stock, before.body.stock - 3);
+  // FR-1.2: the units left `stock` when the cart took its hold, so checkout
+  // must discharge the promise instead of decrementing the shelf a second time.
+  assert.equal(
+    after.body.stock,
+    before.body.stock,
+    'stock was already reserved when the medicine was added to the cart'
+  );
+  assert.equal(after.body.held, before.body.held - 3, 'the hold became the sale');
+  assert.equal(
+    after.body.stock + after.body.held,
+    before.body.stock + before.body.held - 3,
+    'only the completed sale reduces the physical count'
+  );
 
   const cart = await api('/api/cart', { token: adminToken, useJar: false });
   assert.deepEqual(cart.body.items, []);
@@ -546,7 +558,10 @@ test("another user cannot read, pay or cancel someone else's order", async () =>
 
 // --------------------------------------------------- stock safety / expiry
 
-test('a failed reservation does not decrement any earlier line', async () => {
+test('a lapsed hold whose units were taken fails checkout without a partial sale', async () => {
+  const Cart = require('../models/Cart');
+  const lowStockId = new mongoose.Types.ObjectId(lowStockMedicine.body.id);
+
   await api('/api/cart', { method: 'DELETE', token: adminToken });
   await api('/api/cart/items', {
     method: 'POST',
@@ -559,14 +574,38 @@ test('a failed reservation does not decrement any earlier line', async () => {
     body: { medicineId: lowStockMedicine.body.id, quantity: 2 },
   });
 
-  // Someone else buys the low-stock medicine after it was added to this cart.
+  // An admin stock correction does not claw back units a cart already holds.
   await api(`/api/medicines/${lowStockMedicine.body.id}`, {
     method: 'PATCH',
     token: adminToken,
     body: { stock: 1 },
   });
 
-  const stockBefore = (await api(`/api/medicines/${cartMedicine.body.id}`)).body.stock;
+  // CART_HOLD_MINUTES passes: the line keeps its quantity but stops holding.
+  await Cart.updateOne(
+    { items: { $elemMatch: { medicine: lowStockId } }, user: { $ne: null } },
+    { $set: { 'items.$[line].holdExpiresAt': new Date(Date.now() - 60_000) } },
+    { arrayFilters: [{ 'line.medicine': lowStockId }] }
+  );
+
+  // Reading the cart releases the lapsed hold (FR-1.3)...
+  const released = await api('/api/cart', { token: adminToken, useJar: false });
+  const ibuprofen = released.body.items.find(
+    (item) => item.medicineId === lowStockMedicine.body.id
+  );
+  assert.equal(ibuprofen.holdActive, false);
+  assert.equal(ibuprofen.holdExpired, true);
+  assert.equal(ibuprofen.quantity, 2, 'the item stays in the cart');
+
+  // ...and another shopper buys those units before this customer checks out.
+  const taken = await api('/api/cart/items', {
+    method: 'POST',
+    token: staffToken,
+    body: { medicineId: lowStockMedicine.body.id, quantity: 2 },
+  });
+  assert.equal(taken.status, 201, JSON.stringify(taken.body));
+
+  const cartHeldBefore = (await api(`/api/medicines/${cartMedicine.body.id}`)).body;
   const res = await api('/api/orders', {
     method: 'POST',
     token: adminToken,
@@ -575,17 +614,18 @@ test('a failed reservation does not decrement any earlier line', async () => {
 
   assert.equal(res.status, 409);
   assert.match(res.body.error, /Ibuprofen/);
-  assert.equal(
-    (await api(`/api/medicines/${cartMedicine.body.id}`)).body.stock,
-    stockBefore,
-    'the first line must be rolled back'
-  );
+
+  // The first line was never converted, so its hold and the shelf are intact.
+  const cartHeldAfter = (await api(`/api/medicines/${cartMedicine.body.id}`)).body;
+  assert.equal(cartHeldAfter.stock, cartHeldBefore.stock, 'no partial sale');
+  assert.equal(cartHeldAfter.held, cartHeldBefore.held, 'the earlier hold is untouched');
 
   // The cart is untouched so the shopper can fix the quantity.
   const cart = await api('/api/cart', { token: adminToken, useJar: false });
   assert.equal(cart.body.items.length, 2);
 
   // Restore a usable state for the remaining tests.
+  await api('/api/cart', { method: 'DELETE', token: staffToken });
   await api(`/api/medicines/${lowStockMedicine.body.id}`, {
     method: 'PATCH',
     token: adminToken,

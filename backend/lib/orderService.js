@@ -7,6 +7,11 @@ const { httpError } = require('./errors');
 const { isExpired } = require('./availability');
 const { computeTotals } = require('./pricing');
 const { getProviderName } = require('./paymentGateway');
+const {
+  convertHoldToSale,
+  restoreHold,
+  heldQuantity,
+} = require('./cartHolds');
 
 const DEFAULT_RESERVATION_MINUTES = 30;
 
@@ -34,18 +39,40 @@ async function restoreStock(items = []) {
 }
 
 /**
- * Validate a cart, reserve stock atomically and persist an order snapshot.
+ * Undo the counter moves of a failed checkout: units reserved from the shelf go
+ * back on sale, and units converted from a hold become holds again, so the
+ * customer keeps the reservation they had before the attempt (FR-2.2).
+ */
+async function rollbackMoves(moves = []) {
+  for (const move of moves) {
+    if (move.stock > 0) {
+      await Medicine.updateOne({ _id: move.medicine }, { $inc: { stock: move.stock } });
+    }
+    if (move.held > 0) {
+      // Put the promise back without touching `stock`, which never moved.
+      await restoreHold(move.medicine, move.held);
+    }
+  }
+}
+
+/**
+ * Validate a cart, turn its holds into sales and persist an order snapshot.
  *
- * If any line cannot be reserved, every earlier reservation in this call is
- * rolled back before the error is re-thrown, so a cart is never half-ordered.
+ * Each line is one conditional update: a live hold is discharged from `held`
+ * (the units left `stock` when the hold was taken), and anything the line does
+ * not hold — a lapsed hold, or a cart created before Phase C — is reserved from
+ * `stock` in the same pass. If any line cannot be satisfied, every earlier
+ * counter move in this call is rolled back before the error is re-thrown, so a
+ * cart is never half-ordered.
  *
  * @param {object} params
  * @param {import('../models/Cart')|null} params.cart
  * @param {import('../models/User')} params.user
  * @param {object} params.shippingAddress
+ * @param {Date} [params.now] injectable clock (used by tests)
  * @returns {Promise<import('../models/Order')>}
  */
-async function createOrderFromCart({ cart, user, shippingAddress }) {
+async function createOrderFromCart({ cart, user, shippingAddress, now = new Date() }) {
   if (!cart || cart.items.length === 0) {
     throw httpError(400, 'Your cart is empty. Add a medicine before checking out.');
   }
@@ -55,44 +82,70 @@ async function createOrderFromCart({ cart, user, shippingAddress }) {
   });
   const byId = new Map(medicines.map((medicine) => [String(medicine._id), medicine]));
 
-  // Validate the whole cart before touching stock.
+  // Validate the whole cart before touching any counter.
   const problems = [];
+  const plans = [];
   for (const item of cart.items) {
     const medicine = byId.get(String(item.medicine));
     if (!medicine) {
       problems.push('One of the medicines is no longer available.');
-    } else if (isExpired(medicine)) {
-      problems.push(`"${medicine.name}" has expired.`);
-    } else if (medicine.stock < item.quantity) {
-      problems.push(`Only ${medicine.stock} unit(s) of "${medicine.name}" left in stock.`);
+      continue;
     }
+    if (isExpired(medicine, now)) {
+      problems.push(`"${medicine.name}" has expired.`);
+      continue;
+    }
+
+    const held = heldQuantity(item, now);
+    const available = medicine.stock + held;
+    if (available < item.quantity) {
+      problems.push(`Only ${available} unit(s) of "${medicine.name}" left in stock.`);
+      continue;
+    }
+
+    plans.push({ item, medicine, held });
   }
   if (problems.length > 0) {
     throw httpError(409, `Your cart needs attention: ${problems.join(' ')}`);
   }
 
-  // Reserve one line at a time with a conditional update. This works on a
-  // standalone MongoDB (no replica-set transactions required).
-  const reserved = [];
+  // Convert each hold, or reserve from the shelf when the hold has lapsed. One
+  // conditional update per line; compensated below if a later line fails.
+  const moves = [];
   try {
-    for (const item of cart.items) {
-      const medicine = byId.get(String(item.medicine));
-      const updated = await Medicine.findOneAndUpdate(
-        { _id: medicine._id, stock: { $gte: item.quantity } },
-        { $inc: { stock: -item.quantity } },
-        { new: true }
-      );
+    for (const { item, medicine, held } of plans) {
+      const fromHold = Math.min(held, item.quantity);
+      const fromStock = item.quantity - fromHold;
 
-      if (!updated) {
-        throw httpError(
-          409,
-          `"${medicine.name}" no longer has ${item.quantity} unit(s) in stock.`
-        );
+      if (fromHold > 0) {
+        const sold = await convertHoldToSale(medicine._id, fromHold);
+        if (!sold) {
+          throw httpError(
+            409,
+            `"${medicine.name}" is no longer being held for you. Please refresh your cart.`
+          );
+        }
+        moves.push({ medicine: medicine._id, held: fromHold, stock: 0 });
       }
-      reserved.push({ medicine: medicine._id, quantity: item.quantity });
+
+      if (fromStock > 0) {
+        const reserved = await Medicine.findOneAndUpdate(
+          { _id: medicine._id, stock: { $gte: fromStock } },
+          { $inc: { stock: -fromStock } },
+          { new: true }
+        );
+
+        if (!reserved) {
+          throw httpError(
+            409,
+            `"${medicine.name}" no longer has ${fromStock} unit(s) in stock.`
+          );
+        }
+        moves.push({ medicine: medicine._id, held: 0, stock: fromStock });
+      }
     }
   } catch (err) {
-    await restoreStock(reserved);
+    await rollbackMoves(moves);
     throw err;
   }
 
@@ -131,7 +184,7 @@ async function createOrderFromCart({ cart, user, shippingAddress }) {
     } catch (err) {
       const isDuplicate = err.code === 11000 && err.keyPattern && err.keyPattern.orderNumber;
       if (!isDuplicate || attempt === 2) {
-        await restoreStock(reserved);
+        await rollbackMoves(moves);
         throw err;
       }
     }
@@ -188,6 +241,7 @@ module.exports = {
   reservationMinutes,
   generateOrderNumber,
   restoreStock,
+  rollbackMoves,
   createOrderFromCart,
   expireOrderById,
   expireStaleOrders,
