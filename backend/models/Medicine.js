@@ -39,6 +39,22 @@ const medicineSchema = new mongoose.Schema(
         message: 'Stock must be a whole number',
       },
     },
+    // Units promised to carts by a live soft hold (SRS FR-1.2).
+    //
+    // `stock` is what a *new* customer can still buy, so taking a hold moves
+    // units from `stock` into `held` and releasing it moves them back. The pair
+    // (`stock + held`) is the physical quantity on hand and only changes when a
+    // hold converts into a sale (decreases) or a replenishment arrives
+    // (increases). See lib/cartHolds.js.
+    held: {
+      type: Number,
+      default: 0,
+      min: [0, 'Held quantity cannot be negative'],
+      validate: {
+        validator: Number.isInteger,
+        message: 'Held quantity must be a whole number',
+      },
+    },
     // Prescription-only medicine (Rx). When true, checkout is blocked until the
     // customer has a verified prescription on file (SRS FR-1.4 / FR-2.1).
     prescriptionRequired: {

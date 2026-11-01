@@ -5,6 +5,7 @@
 // after the rename are safe).
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Medicine = require('../models/Medicine');
 
 const MIGRATIONS = [
   {
@@ -14,6 +15,20 @@ const MIGRATIONS = [
       // inherit the new back-office permissions.
       const result = await User.updateMany({ role: 'staff' }, { $set: { role: 'customer' } });
       return `${result.modifiedCount} legacy staff account(s) moved to customer`;
+    },
+  },
+  {
+    id: '002-medicine-held-counter',
+    async run() {
+      // Phase C adds `held` (units promised to carts, SRS FR-1.2). Rows created
+      // before it have no such field, and `$inc` on a missing field would start
+      // the counter at a negative value, so every existing medicine is pinned
+      // to zero before any hold is taken.
+      const result = await Medicine.updateMany(
+        { held: { $exists: false } },
+        { $set: { held: 0 } }
+      );
+      return `${result.modifiedCount} medicine row(s) initialised with held=0`;
     },
   },
 ];

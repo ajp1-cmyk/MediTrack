@@ -27,6 +27,16 @@ const cartItemSchema = new mongoose.Schema(
         message: 'Quantity must be a whole number',
       },
     },
+    // When the soft hold on this line lapses (SRS FR-1.2 / FR-1.3).
+    //
+    // `null` means the line is not holding any stock: either it never did or
+    // the hold expired and lib/cartHolds.js already returned the units to
+    // `Medicine.stock`. An expired line stays in the cart — the customer is
+    // asked to refresh the hold rather than losing the item silently.
+    holdExpiresAt: {
+      type: Date,
+      default: null,
+    },
   },
   { _id: false }
 );
@@ -82,5 +92,9 @@ cartSchema.index(
 // TTL index: drops guest carts once expiresAt passes. Documents with a null
 // expiresAt (user carts) are ignored by MongoDB's TTL monitor.
 cartSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+// The hold sweeper (lib/cartHolds.js) looks for carts with a lapsed line, so it
+// needs an index on the multikey path rather than a collection scan.
+cartSchema.index({ 'items.holdExpiresAt': 1 });
 
 module.exports = mongoose.model('Cart', cartSchema);
