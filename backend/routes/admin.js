@@ -7,6 +7,7 @@
 //   PATCH  /api/admin/orders/:id/status  fulfilment transition
 //   GET    /api/admin/customers          customer list + order stats
 //   GET    /api/admin/audit              audit log (admin only)
+//   POST   /api/admin/inventory/replenish  restock everything at/below the watermark
 //   POST   /api/admin/invites            create an admin/staff invite (admin)
 //   GET    /api/admin/invites            list invites (admin)
 //   DELETE /api/admin/invites/:id        revoke an invite (admin)
@@ -20,6 +21,7 @@ const { requireAuth, requirePermission } = require('../middleware/auth');
 const { httpError, asyncHandler } = require('../lib/errors');
 const { recordAudit, listAudit } = require('../lib/audit');
 const { restoreStock } = require('../lib/orderService');
+const { inventoryConfig, replenishLowStock } = require('../lib/inventory');
 const {
   createInvite,
   listInvites,
@@ -59,10 +61,12 @@ router.get(
   '/summary',
   requirePermission('orders:read:all'),
   asyncHandler(async (_req, res) => {
+    const inventory = inventoryConfig();
+
     const [medicines, lowStock, customers, statusRows, revenueRows, recentOrders] =
       await Promise.all([
         Medicine.countDocuments(),
-        Medicine.countDocuments({ stock: { $lte: 10 } }),
+        Medicine.countDocuments({ stock: { $lte: inventory.lowStockWatermark } }),
         User.countDocuments({ role: 'customer' }),
         Order.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
         Order.aggregate([
@@ -84,8 +88,24 @@ router.get(
         byStatus,
       },
       revenue: revenueRows[0] ? revenueRows[0].total : 0,
+      // The dashboard shows the configured watermark instead of hard-coding 10.
+      inventory: {
+        lowStockWatermark: inventory.lowStockWatermark,
+        replenishTo: inventory.replenishTo,
+      },
       recentOrders,
     });
+  })
+);
+
+// POST /api/admin/inventory/replenish — restock every medicine at/below the
+// watermark right away. The background sweep does the same thing periodically;
+// this endpoint makes the behaviour demonstrable (and auditable) on demand.
+router.post(
+  '/inventory/replenish',
+  requirePermission('catalog:write'),
+  asyncHandler(async (req, res) => {
+    res.json(await replenishLowStock({ req }));
   })
 );
 

@@ -10,6 +10,7 @@
     "db:local": "node scripts/local-mongo.js",
     "seed:admin": "node scripts/seed-admin.js",
     "migrate:roles": "node scripts/migrate-roles.js",
+    "inventory:replenish": "node scripts/replenish-inventory.js",
     "test": "node --test"
   },
   "dependencies": {

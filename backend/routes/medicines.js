@@ -48,6 +48,43 @@ const upload = multer({
 
 // Fields a client may change after creation.
 const UPDATABLE_FIELDS = ['name', 'mfd', 'exp', 'price', 'stock'];
+// Every field PATCH /api/medicines/:id understands (used in the error message).
+const PATCHABLE_FIELDS = [...UPDATABLE_FIELDS, 'prescriptionRequired', 'refillDays', 'image'];
+
+/**
+ * Read a boolean sent in a multipart/form-data body. Form fields are always
+ * strings, and Mongoose would cast the string "false" to `true`, so parse it
+ * explicitly.
+ */
+function parseBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  return ['true', '1', 'on', 'yes'].includes(String(value).trim().toLowerCase());
+}
+
+/** Optional whole number; returns undefined when the client left the field out. */
+function parseOptionalInteger(value, field, { min, max }) {
+  if (value === undefined || value === null || String(value).trim() === '') return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+    throw httpError(400, `${field} must be a whole number between ${min} and ${max}`);
+  }
+  return parsed;
+}
+
+/** The stock fields we copy into the audit log (never credentials). */
+function medicineSnapshot(medicine) {
+  return {
+    name: medicine.name,
+    mfd: medicine.mfd,
+    exp: medicine.exp,
+    price: medicine.price,
+    stock: medicine.stock,
+    prescriptionRequired: medicine.prescriptionRequired,
+    refillDays: medicine.refillDays,
+    image: medicine.image,
+  };
+}
 
 // Authentication + the catalog:write permission (admin and staff), required by
 // every write operation. Customers get 403.
@@ -102,12 +139,19 @@ router.post(
       throw httpError(400, 'Stock must be a valid non-negative whole number');
     }
 
+    const refillDays = parseOptionalInteger(req.body.refillDays, 'refillDays', {
+      min: 1,
+      max: 365,
+    });
+
     const medicine = await Medicine.create({
       name: name.trim(),
       mfd,
       exp,
       price: priceNum,
       stock: stockNum,
+      prescriptionRequired: parseBoolean(req.body.prescriptionRequired),
+      ...(refillDays === undefined ? {} : { refillDays }),
       image: req.file ? req.file.filename : null,
       createdBy: req.user._id,
     });
@@ -117,14 +161,7 @@ router.post(
       action: 'medicine.create',
       targetType: 'medicine',
       targetId: medicine._id,
-      after: {
-        name: medicine.name,
-        mfd: medicine.mfd,
-        exp: medicine.exp,
-        price: medicine.price,
-        stock: medicine.stock,
-        image: medicine.image,
-      },
+      after: medicineSnapshot(medicine),
     });
 
     res.status(201).json(medicine);
@@ -142,14 +179,7 @@ router.patch(
       throw httpError(404, 'Medicine not found');
     }
 
-    const before = {
-      name: medicine.name,
-      mfd: medicine.mfd,
-      exp: medicine.exp,
-      price: medicine.price,
-      stock: medicine.stock,
-      image: medicine.image,
-    };
+    const before = medicineSnapshot(medicine);
 
     let changed = false;
     for (const field of UPDATABLE_FIELDS) {
@@ -157,6 +187,21 @@ router.patch(
       if (value === undefined) continue;
       // Mongoose casts strings to Number and runs the schema validators on save.
       medicine.set(field, typeof value === 'string' ? value.trim() : value);
+      changed = true;
+    }
+
+    // "Is this prescription-only?" and the refill cycle are edited from the same
+    // forms, so parse them here instead of letting Mongoose guess.
+    if (req.body.prescriptionRequired !== undefined) {
+      medicine.prescriptionRequired = parseBoolean(req.body.prescriptionRequired);
+      changed = true;
+    }
+    const refillDays = parseOptionalInteger(req.body.refillDays, 'refillDays', {
+      min: 1,
+      max: 365,
+    });
+    if (refillDays !== undefined) {
+      medicine.refillDays = refillDays;
       changed = true;
     }
 
@@ -170,7 +215,7 @@ router.patch(
     if (!changed) {
       throw httpError(
         400,
-        `Provide at least one field to update (${UPDATABLE_FIELDS.join(', ')}, image)`
+        `Provide at least one field to update (${PATCHABLE_FIELDS.join(', ')})`
       );
     }
 
@@ -183,14 +228,7 @@ router.patch(
       targetType: 'medicine',
       targetId: medicine._id,
       before,
-      after: {
-        name: medicine.name,
-        mfd: medicine.mfd,
-        exp: medicine.exp,
-        price: medicine.price,
-        stock: medicine.stock,
-        image: medicine.image,
-      },
+      after: medicineSnapshot(medicine),
     });
 
     res.json(medicine);
@@ -207,14 +245,7 @@ router.delete(
       throw httpError(404, 'Medicine not found');
     }
 
-    const before = {
-      name: medicine.name,
-      mfd: medicine.mfd,
-      exp: medicine.exp,
-      price: medicine.price,
-      stock: medicine.stock,
-      image: medicine.image,
-    };
+    const before = medicineSnapshot(medicine);
 
     await medicine.deleteOne();
     removeUpload(medicine.image);

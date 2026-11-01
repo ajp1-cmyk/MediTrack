@@ -207,6 +207,12 @@ export const adminApi = {
       body: JSON.stringify(patch),
     }),
   deleteMedicine: (id) => apiFetch(`/api/medicines/${id}`, { method: 'DELETE' }),
+  // FR-1.1: refill every medicine at/below the low-stock watermark right away.
+  replenishStock: () =>
+    apiFetch('/api/admin/inventory/replenish', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
 };
 
 
@@ -249,5 +255,10 @@ export const ordersApi = {
       method: 'POST',
       body: JSON.stringify({}),
     }),
+};
+
+/** Customer account extras (MediPoints today, refill reminders next). */
+export const accountApi = {
+  medipoints: () => apiFetch('/api/me/medipoints'),
 };
 

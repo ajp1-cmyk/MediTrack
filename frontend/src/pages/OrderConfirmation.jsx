@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import OrderSummary from '../components/OrderSummary.jsx';
-import { ordersApi } from '../lib/api.js';
+import { accountApi, ordersApi } from '../lib/api.js';
 import {
   formatCurrency,
   formatDate,
@@ -12,6 +12,7 @@ import {
 const METHOD_LABELS = {
   card: 'Card',
   upi: 'UPI',
+  netbanking: 'Net banking',
   cod: 'Cash on delivery',
 };
 
@@ -19,14 +20,21 @@ export default function OrderConfirmation() {
   const { id } = useParams();
 
   const [order, setOrder] = useState(null);
+  // MediPoints summary for this customer (null while loading / when signed out).
+  const [points, setPoints] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     try {
       setError('');
-      const data = await ordersApi.get(id);
-      setOrder(data);
+      const [orderData, pointsData] = await Promise.all([
+        ordersApi.get(id),
+        // Points are a nice-to-have here: never fail the receipt because of them.
+        accountApi.medipoints().catch(() => null),
+      ]);
+      setOrder(orderData);
+      setPoints(pointsData);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -65,6 +73,10 @@ export default function OrderConfirmation() {
   const paid = order.status === 'paid';
   const processing = order.status === 'processing';
   const pending = order.status === 'pending_payment';
+
+  // The ledger entry for this order (only exists once the payment succeeded).
+  const pointsForOrder =
+    points && points.entries ? points.entries.find((entry) => entry.order === order.id) : null;
 
   return (
     <main className="page">
@@ -133,11 +145,37 @@ export default function OrderConfirmation() {
               {order.payment.brand} ending in {order.payment.last4}
             </p>
           )}
+          {order.payment.method === 'netbanking' && order.payment.brand && (
+            <p className="muted">
+              Paid through {order.payment.brand.toUpperCase()} net banking
+            </p>
+          )}
           {order.payment.transactionId && (
             <p className="muted">Transaction: {order.payment.transactionId}</p>
           )}
           {order.payment.failureReason && (
             <p className="warning">{order.payment.failureReason}</p>
+          )}
+
+          {points && (
+            <>
+              <h2>MediPoints</h2>
+              {pointsForOrder ? (
+                <p>
+                  You earned <strong>{pointsForOrder.points}</strong> MediPoint
+                  {pointsForOrder.points === 1 ? '' : 's'} on this order.
+                </p>
+              ) : (
+                <p className="muted">
+                  Points are credited as soon as the payment is confirmed. Cash on delivery
+                  earns them once the order is paid.
+                </p>
+              )}
+              <p className="muted">
+                Balance: {points.balance} point{points.balance === 1 ? '' : 's'} ·{' '}
+                {points.pointsPer100} point{points.pointsPer100 === 1 ? '' : 's'} per ₹100 spent
+              </p>
+            </>
           )}
 
           <h2>Delivery</h2>

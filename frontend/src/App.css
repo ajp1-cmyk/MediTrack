@@ -226,6 +226,25 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
+/* A <select> inside a form field (e.g. the net-banking bank picker) matches the
+   text inputs. */
+.field select {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 0.95rem;
+  background: #fff;
+  color: #111827;
+}
+
+.field select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
 .field input[type='file'] {
   padding: 9px;
   background: #f9fafb;
@@ -705,6 +724,27 @@
   margin: 10px 0 0;
   color: #6b7280;
   font-size: 0.78rem;
+}
+
+/* MediPoints balance card on /orders */
+.points-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.points-balance {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.points-balance strong {
+  font-size: 1.6rem;
+  color: #111827;
 }
 
 .sandbox-note {
@@ -1615,6 +1655,18 @@
 .badge-gray {
   background: #e5e7eb;
   color: #4b5563;
+}
+
+/* Prescription-only (Rx) marker */
+.badge-blue {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.admin-page-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .link-button {

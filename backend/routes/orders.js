@@ -12,6 +12,7 @@ const { requireAuth } = require('../middleware/auth');
 const { rejectFormBody } = require('../middleware/requestGuards');
 const { httpError, asyncHandler } = require('../lib/errors');
 const { findCart } = require('../lib/cartSession');
+const { creditOrderPoints } = require('../lib/medipoints');
 const {
   createOrderFromCart,
   expireStaleOrders,
@@ -152,6 +153,12 @@ router.post(
     order.status = isCod ? 'processing' : 'paid';
     order.expiresAt = null;
     await order.save();
+
+    // FR-2.4: MediPoints are credited only after the payment is confirmed.
+    // `payment.status` is 'pending' for cash on delivery, so nothing is credited
+    // until the money is actually collected. Safe to repeat: the ledger has a
+    // unique index on the order.
+    await creditOrderPoints(order);
 
     res.json(order);
   })

@@ -15,7 +15,7 @@ const ORDER_STATUSES = [
   'cancelled',
   'expired',
 ];
-const PAYMENT_METHODS = ['card', 'upi', 'cod'];
+const PAYMENT_METHODS = ['card', 'upi', 'netbanking', 'cod'];
 const PAYMENT_STATUSES = ['pending', 'succeeded', 'failed', 'cancelled'];
 
 function isWholeNumber(value) {

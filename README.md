@@ -6,11 +6,22 @@ catalogue, add medicines to a cart, check out, and pay on a sandbox payment page
 - **Frontend:** React (Vite) + React Router
 - **Backend:** Node.js + Express
 - **Database:** MongoDB via Mongoose — `medicines`, `users`, `carts`, `orders`, `sessions`,
-  `admininvites` and `auditlogs` collections
+  `admininvites`, `medipointsentries` and `auditlogs` collections
 - **Auth:** JWT (`jsonwebtoken`) with bcrypt-hashed passwords (`bcryptjs`)
 - **Cart session:** signed, httpOnly cookie + server-side cart document (`cookie-parser`)
 - **Payments:** provider adapter with a built-in sandbox gateway (`PAYMENT_PROVIDER=mock`)
 - **Image upload:** multer (saved to `backend/uploads/`)
+
+## Documentation
+
+| Document | File |
+| -------- | ---- |
+| Project report — IEEE 830 / 1016 / 829 structure, 47 pp. | `MediTrack_Project_Report_IEEE_v2.pdf`, `MediTrack_Project_Report_IEEE_v2.docx` |
+| Report source (regenerate the DOCX/PDF from here) | `docs/MediTrack_Project_Report_IEEE_v2.html` |
+| Software Requirements Specification | `SRS.pdf` |
+
+The report's Appendix A is the authoritative requirement-to-code-to-test traceability matrix; update it whenever a
+phase lands.
 
 ## Project structure
 
@@ -26,6 +37,7 @@ meditrack/
 │   │   ├── Order.js           # order snapshots + payment state
 │   │   ├── Session.js         # refresh-token sessions (hashed, rotating)
 │   │   ├── AdminInvite.js     # single-use staff/admin invites (hashed)
+│   │   ├── MediPointsEntry.js # append-only MediPoints ledger (one earn per order)
 │   │   └── AuditLog.js        # append-only back-office audit trail
 │   ├── middleware/
 │   │   ├── auth.js            # requireAuth, requireRole, requirePermission, JWT signing
@@ -35,6 +47,8 @@ meditrack/
 │   │   ├── errors.js          # httpError + asyncHandler helpers
 │   │   ├── mongoErrors.js     # local/cloud connection hints + password redaction
 │   │   ├── availability.js    # expired / out-of-stock checks
+│   │   ├── inventory.js       # low-stock watermark → refill sweep (FR-1.1)
+│   │   ├── medipoints.js      # earn rule + idempotent credit (FR-2.4)
 │   │   ├── pricing.js         # paise-accurate subtotal, GST, delivery, total
 │   │   ├── cartSession.js     # signed cookie, cart lookup/merge, serialisation
 │   │   ├── sessions.js        # refresh cookie, rotation, reuse detection
@@ -50,15 +64,18 @@ meditrack/
 │   │   ├── check-db.js        # `npm run db:check` — verify MONGODB_URI (local or cloud)
 │   │   ├── local-mongo.js     # `npm run db:local` — no-install local MongoDB
 │   │   ├── seed-admin.js      # `npm run seed:admin` — create/promote the first admin
-│   │   └── migrate-roles.js   # `npm run migrate:roles` — apply pending data migrations
+│   │   ├── migrate-roles.js   # `npm run migrate:roles` — apply pending data migrations
+│   │   └── replenish-inventory.js # `npm run inventory:replenish` — one restock pass
 │   ├── routes/
 │   │   ├── auth.js            # register / login / refresh / logout / sessions / users
 │   │   ├── adminAuth.js       # public back-office login + invite acceptance
-│   │   ├── admin.js           # summary / orders / customers / audit / invites
+│   │   ├── admin.js           # summary / orders / customers / audit / invites / restock
 │   │   ├── medicines.js       # stock CRUD + image upload (staff + admin)
 │   │   ├── cart.js            # cart endpoints
-│   │   └── orders.js          # checkout, order history, pay, cancel
-│   ├── tests/                 # API tests (stock, auth sessions, admin/roles, cart, payments)
+│   │   ├── orders.js          # checkout, order history, pay, cancel
+│   │   └── me.js              # customer account extras (MediPoints)
+│   ├── tests/                 # API tests (stock, auth sessions, admin/roles, cart, payments,
+│   │                          # inventory replenishment, MediPoints)
 │   ├── uploads/               # (created at runtime) uploaded images
 │   └── .env.example           # environment template
 └── frontend/
@@ -224,6 +241,13 @@ FREE_DELIVERY_OVER=499
 PAYMENT_PROVIDER=mock
 PAYMENT_MOCK_DELAY_MS=700
 ORDER_RESERVATION_MINUTES=30
+# Inventory replenishment (SRS FR-1.1)
+LOW_STOCK_WATERMARK=10
+REPLENISH_TO=100
+REPLENISH_INTERVAL_MS=60000
+INVENTORY_AUTO_REPLENISH=on
+# MediPoints (SRS FR-2.4)
+MEDIPOINTS_PER_100=1
 # CORS_ORIGIN=https://shop.example.com   # only for cross-origin deployments
 ```
 
@@ -374,6 +398,17 @@ app is same-origin, so cookies work out of the box.
 - A pending order holds its stock for `ORDER_RESERVATION_MINUTES` (default 30). Paying
   clears the deadline; cancelling or letting it lapse releases the stock exactly once
   (atomic status transition, so a race cannot double-restore).
+- **Low-stock replenishment (FR-1.1):** a medicine at or below `LOW_STOCK_WATERMARK`
+  (default **10**) is refilled to `REPLENISH_TO` (default **100**). The sweep runs every
+  `REPLENISH_INTERVAL_MS` (default 60 s) and once at startup, and the Inventory Manager can
+  trigger it from **`/admin/stock` → Restock low stock** or `POST /api/admin/inventory/replenish`.
+  Expired medicines are never refilled, and each restock is written to the audit log.
+  Run one pass by hand with `npm run inventory:replenish`. Set
+  `INVENTORY_AUTO_REPLENISH=off` to disable the timer (the endpoint keeps working).
+- **MediPoints (FR-2.4):** after a confirmed payment the customer earns 1 point per ₹100 of
+  the medicine subtotal (`MEDIPOINTS_PER_100`). The balance is shown on `/orders` and on the
+  receipt. The `medipointsentries` collection is an append-only ledger with one entry per
+  order, so replaying a payment cannot credit twice.
 
 ### Payment provider
 
@@ -385,6 +420,7 @@ are needed:
 | ------ | -------------- |
 | Card | `4242 4242 4242 4242` succeeds; any Luhn-valid number ending in `02` is declined; expiry must be `MM/YY` and in the future |
 | UPI | `name@bank` succeeds; `fail@bank` is declined |
+| Net banking | `hdfc`, `icici`, `sbi`, `axis`, `kotak` succeed; `failbank` is declined. Only the bank code is stored (as `payment.brand`) |
 | Cash on delivery | accepted up to ₹5,000; order becomes `processing` with payment pending |
 
 Only the brand and last four digits are stored on the order — never a full card number or
@@ -489,6 +525,7 @@ Rules of thumb for MongoDB:
 | GET | `/api/admin/orders/:id` | staff/admin | one order with the customer |
 | PATCH | `/api/admin/orders/:id/status` | staff/admin | `paid → processing → shipped → delivered`; `pending_payment → cancelled` |
 | GET | `/api/admin/customers` | staff/admin | customers with order count, spend and last order |
+| POST | `/api/admin/inventory/replenish` | staff/admin | restock every medicine at/below the watermark now (FR-1.1) |
 | GET | `/api/admin/audit` | admin | audit log; `action`, `page`, `limit` |
 | POST | `/api/admin/invites` | admin | `{ email, role }` → one-time token + `/admin/register` link |
 | GET | `/api/admin/invites` | admin | pending invites (`?includeClosed=true` for all) |
@@ -568,8 +605,19 @@ Every mutation returns the freshly serialised cart:
 | POST | `/api/orders` | **JWT** | `{ shippingAddress }` — create an order from the cart, reserve stock |
 | GET | `/api/orders` | **JWT** | The caller's orders, newest first |
 | GET | `/api/orders/:id` | **JWT** (owner) | One order; other users get `404` |
-| POST | `/api/orders/:id/pay` | **JWT** (owner) | `{ method, details }` — `card`, `upi` or `cod` |
+| POST | `/api/orders/:id/pay` | **JWT** (owner) | `{ method, details }` — `card`, `upi`, `netbanking` or `cod` |
 | POST | `/api/orders/:id/cancel` | **JWT** (owner) | Cancel a `pending_payment` order and release stock |
+
+### Account (signed in)
+
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| GET | `/api/me/medipoints` | `{ balance, totalEarned, pointsPer100, entries[] }` — MediPoints ledger (FR-2.4) |
+
+Points are credited **only after a confirmed payment**, once per order (the ledger has a
+unique index on `order`). Cash on delivery earns nothing until the money is collected, and a
+declined card earns nothing at all. The rule is **1 point per ₹100 of the medicine subtotal**
+(tax and delivery excluded) and is configurable with `MEDIPOINTS_PER_100`.
 
 `POST /api/orders` body:
 
@@ -593,6 +641,7 @@ Every mutation returns the freshly serialised cart:
 ```json
 { "method": "card", "details": { "number": "4242424242424242", "expiry": "12/30", "cvv": "123" } }
 { "method": "upi",  "details": { "vpa": "ada@okbank" } }
+{ "method": "netbanking", "details": { "bank": "hdfc" } }
 { "method": "cod" }
 ```
 
@@ -658,12 +707,43 @@ The suite starts a real in-memory MongoDB (`mongodb-memory-server`) and the real
 then exercises registration, login, 401/403 permission checks, stock CRUD, validation,
 image upload and 404s. `tests/cart-orders.test.js` covers the signed cart cookie,
 guest-cart merge, quantity/stock/expiry validation, server-side totals, checkout and stock
-reservation, rollback, card/UPI/COD payments, declines and retries, cancellation, expiry,
-ownership checks and order history. `tests/sessions.test.js` covers refresh-token rotation,
-reuse detection and revocation, and `tests/admin.test.js` covers the role split, staff stock
-rights, invite creation/acceptance/expiry, order fulfilment transitions, customer stats and
-the audit log.
+reservation, rollback, card/UPI/net-banking/COD payments, declines and retries, cancellation,
+expiry, ownership checks and order history. `tests/sessions.test.js` covers refresh-token
+rotation, reuse detection and revocation, and `tests/admin.test.js` covers the role split,
+staff stock rights, invite creation/acceptance/expiry, order fulfilment transitions, customer
+stats and the audit log. `tests/inventory.test.js` covers the low-stock watermark, expired
+stock being skipped, the configurable watermark/target, the concurrent-sweep guard, RBAC on
+the manual restock endpoint and the audit entry, and `tests/medipoints.test.js` covers the
+per-₹100 rule, credit-only-after-payment, one entry per order, COD/failed payments earning
+nothing and per-customer isolation.
 **No MongoDB installation is required to run it.**
+
+## SRS traceability
+
+Where each requirement is implemented. Update the "Status" column as later phases land.
+
+| Requirement | Status | Implementation | Test |
+| ----------- | ------ | -------------- | ---- |
+| FR-1.1 replenish at watermark 10 → 100 | ✅ | `lib/inventory.js`, sweep in `server.js`, `POST /api/admin/inventory/replenish` | `tests/inventory.test.js` |
+| FR-1.2 atomic soft hold on add-to-cart | 🚧 planned (Phase C) | stock is currently reserved at checkout (`lib/orderService.js`) | `tests/cart-orders.test.js` |
+| FR-1.3 release an expired hold | ⚠️ partial | order reservations expire (`expireStaleOrders`); cart holds are Phase C | `tests/cart-orders.test.js` |
+| FR-1.4 flag Rx-only medicines and block billing | 🚧 planned (Phase D) | `prescriptionRequired` field added in Phase A | `tests/inventory.test.js` |
+| FR-1.5 Wishlist separate from Cart | 🚧 planned (Phase B) | — | — |
+| FR-1.6 customer registration | ✅ | `routes/auth.js` | `tests/api.test.js` |
+| FR-1.7 customer login | ✅ | `routes/auth.js`, `lib/sessions.js` | `tests/api.test.js`, `tests/sessions.test.js` |
+| FR-2.1 block checkout until Rx verified | 🚧 planned (Phase D) | — | — |
+| FR-2.2 failed payment leaves inventory/order unchanged | ✅ | `lib/orderService.js`, `routes/orders.js` | `tests/cart-orders.test.js` |
+| FR-2.3 UPI / debit / credit / net banking (sandbox) | ✅ | `lib/providers/mockPayment.js` | `tests/cart-orders.test.js` |
+| FR-2.4 MediPoints only after successful payment | ✅ | `lib/medipoints.js`, `models/MediPointsEntry.js`, `GET /api/me/medipoints` | `tests/medipoints.test.js` |
+| FR-2.5 refill reminder routes to teleconsultation | 🚧 planned (Phase E) | `refillDays` field added in Phase A | `tests/inventory.test.js` |
+| FR-2.6 immutable purchase history | ✅ / ⚠️ | order snapshots (`models/Order.js`); schema-level immutability guard in Phase F | `tests/cart-orders.test.js` |
+| NFR-1.1 RBAC on every protected request | ✅ | `middleware/auth.js`, `lib/permissions.js` | `tests/api.test.js`, `tests/admin.test.js` |
+| NFR-1.2 bcrypt + JWT with expiry | ✅ | `models/User.js`, `lib/sessions.js` | `tests/sessions.test.js` |
+| NFR-1.3 append-only audit log | ✅ / ⚠️ | `lib/audit.js` (no update/delete routes); model guard in Phase F | `tests/admin.test.js`, `tests/inventory.test.js` |
+| NFR-1.4 tokens / Rx data encrypted at rest | ⚠️ partial | no card data is stored (brand + last4 only); Rx files are Phase D | — |
+| NFR-2.1 atomic inventory reservation | ✅ | `lib/orderService.js` conditional update + rollback | `tests/cart-orders.test.js` |
+| NFR-2.2 hold time + Rx status shown at checkout | ⚠️ partial | reservation countdown on `/orders/:id/payment`; cart holds + Rx status in Phases C/D | — |
+| §4.5 simulated QR/barcode | 🚧 planned (Phase F) | — | — |
 
 ## Notes
 

@@ -44,6 +44,10 @@ function StockEditor({ medicine, onSave }) {
 
 export default function AdminStock() {
   const [medicines, setMedicines] = useState([]);
+  // Watermark/target come from the backend so the "Low stock" badge matches the
+  // replenishment rule (LOW_STOCK_WATERMARK / REPLENISH_TO).
+  const [inventory, setInventory] = useState({ lowStockWatermark: 10, replenishTo: 100 });
+  const [restocking, setRestocking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -53,7 +57,12 @@ export default function AdminStock() {
   const load = useCallback(async () => {
     try {
       setError('');
-      setMedicines(await adminApi.medicines());
+      const [rows, summary] = await Promise.all([
+        adminApi.medicines(),
+        adminApi.summary().catch(() => null),
+      ]);
+      setMedicines(rows);
+      if (summary && summary.inventory) setInventory(summary.inventory);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -64,6 +73,26 @@ export default function AdminStock() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // FR-1.1 on demand: the same sweep the server runs on a timer, triggered by
+  // the Inventory Manager.
+  const restock = async () => {
+    setRestocking(true);
+    try {
+      setError('');
+      const result = await adminApi.replenishStock();
+      await load();
+      setNotice(
+        result.restocked.length === 0
+          ? `Nothing to restock — no medicine is at or below ${result.watermark} units.`
+          : `Restocked ${result.restocked.length} item(s) to ${result.target} units.`
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRestocking(false);
+    }
+  };
 
   const updateStock = async (medicine, stock) => {
     try {
@@ -99,14 +128,31 @@ export default function AdminStock() {
           <h1>Stock</h1>
           <p className="muted">Add medicines, adjust quantities and remove items.</p>
         </div>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => setShowForm((open) => !open)}
-        >
-          {showForm ? 'Close form' : '+ Add medicine'}
-        </button>
+        <div className="admin-page-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={restock}
+            disabled={restocking}
+            title={`Refill every medicine at or below ${inventory.lowStockWatermark} units to ${inventory.replenishTo}`}
+          >
+            {restocking ? 'Restocking…' : 'Restock low stock'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setShowForm((open) => !open)}
+          >
+            {showForm ? 'Close form' : '+ Add medicine'}
+          </button>
+        </div>
       </div>
+
+      <p className="muted">
+        Automatic replenishment: a medicine at or below{' '}
+        <strong>{inventory.lowStockWatermark}</strong> units is refilled to{' '}
+        <strong>{inventory.replenishTo}</strong>. Expired stock is never refilled.
+      </p>
 
       {showForm && (
         <section className="admin-panel">
@@ -160,7 +206,7 @@ export default function AdminStock() {
               {filtered.map((medicine) => {
                 const today = new Date().toISOString().slice(0, 10);
                 const expired = medicine.exp < today;
-                const low = medicine.stock <= 10;
+                const low = medicine.stock <= inventory.lowStockWatermark;
 
                 return (
                   <tr key={medicine.id}>
@@ -177,6 +223,11 @@ export default function AdminStock() {
                             {expired && <span className="badge badge-red">Expired</span>}
                             {!expired && low && (
                               <span className="badge badge-amber">Low stock</span>
+                            )}
+                            {medicine.prescriptionRequired && (
+                              <span className="badge badge-blue" title="Prescription required">
+                                Rx
+                              </span>
                             )}
                           </div>
                         </div>

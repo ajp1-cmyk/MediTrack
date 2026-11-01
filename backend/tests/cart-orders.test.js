@@ -435,6 +435,53 @@ test('cash on delivery confirms the order with payment still pending', async () 
   assert.equal(res.body.payment.paidAt, null);
 });
 
+test('net banking succeeds through a demo bank and stores only the bank code', async () => {
+  const order = await placeOrder(cartMedicine.body.id, 1);
+
+  const res = await api(`/api/orders/${order.id}/pay`, {
+    method: 'POST',
+    token: adminToken,
+    body: { method: 'netbanking', details: { bank: 'hdfc' } },
+  });
+
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(res.body.status, 'paid');
+  assert.equal(res.body.payment.method, 'netbanking');
+  assert.equal(res.body.payment.status, 'succeeded');
+  assert.equal(res.body.payment.brand, 'hdfc');
+  assert.equal(res.body.payment.last4, null);
+  assert.ok(res.body.payment.transactionId);
+});
+
+test('a missing, unknown or declining bank leaves the order payable', async () => {
+  const order = await placeOrder(cartMedicine.body.id, 1);
+  const pay = (details) =>
+    api(`/api/orders/${order.id}/pay`, {
+      method: 'POST',
+      token: adminToken,
+      body: { method: 'netbanking', details },
+    });
+
+  const missing = await pay({});
+  assert.equal(missing.status, 402);
+  assert.match(missing.body.error, /choose your bank/i);
+
+  const unknown = await pay({ bank: 'not-a-bank' });
+  assert.equal(unknown.status, 402);
+  assert.match(unknown.body.error, /not available/i);
+  assert.equal(unknown.body.order.payment.status, 'failed');
+
+  const declined = await pay({ bank: 'failbank' });
+  assert.equal(declined.status, 402);
+  assert.match(declined.body.error, /declined/i);
+
+  // Nothing was consumed by the failed attempts: the order is still payable.
+  const retry = await pay({ bank: 'sbi' });
+  assert.equal(retry.status, 200, JSON.stringify(retry.body));
+  assert.equal(retry.body.status, 'paid');
+  assert.equal(retry.body.payment.brand, 'sbi');
+});
+
 test('only valid payment methods are accepted', async () => {
   const order = await placeOrder(cartMedicine.body.id, 1);
   const res = await api(`/api/orders/${order.id}/pay`, {

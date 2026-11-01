@@ -54,7 +54,11 @@ export default function AdminDashboard() {
       </div>
 
       <div className="admin-cards">
-        <Stat label="Stock items" value={summary.medicines} hint={`${summary.lowStock} low stock`} />
+        <Stat
+          label="Stock items"
+          value={summary.medicines}
+          hint={`${summary.lowStock} at or below ${summary.inventory.lowStockWatermark}`}
+        />
         <Stat label="Customers" value={summary.customers} />
         <Stat label="Orders" value={summary.orders.total} />
         <Stat label="Revenue" value={formatCurrency(summary.revenue)} hint="Paid / fulfilled" />

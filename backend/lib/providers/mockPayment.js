@@ -11,8 +11,15 @@
 //   card  expired date          → declined
 //   upi   name@bank             → success
 //   upi   fail@bank             → declined
+//   netbanking  hdfc/icici/sbi/axis/kotak → success
+//   netbanking  failbank        → declined
 //   cod                         → succeeds, payment stays pending
 const crypto = require('crypto');
+
+// Demo banks offered by the sandbox. `failbank` always declines, so the
+// unsuccessful branch can be demonstrated without a real bank.
+const DEMO_BANKS = ['hdfc', 'icici', 'sbi', 'axis', 'kotak'];
+const DECLINING_BANK = 'failbank';
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -66,8 +73,8 @@ function mockDelayMs() {
  *
  * @param {object} params
  * @param {object} params.order    the order being paid
- * @param {'card'|'upi'|'cod'} params.method
- * @param {object} [params.details] `{ number, expiry, cvv }` or `{ vpa }`
+ * @param {'card'|'upi'|'netbanking'|'cod'} params.method
+ * @param {object} [params.details] `{ number, expiry, cvv }`, `{ vpa }` or `{ bank }`
  * @returns {Promise<{ status: 'succeeded'|'failed', method: string,
  *   transactionId: string|null, last4: string|null, brand: string|null,
  *   failureReason: string|null }>}
@@ -91,6 +98,26 @@ async function charge({ order, method, details = {} }) {
       return decline('The UPI collect request was declined.', method);
     }
     return success({ method: 'upi', brand: 'upi', last4: vpa.split('@')[0].slice(-4) });
+  }
+
+  if (method === 'netbanking') {
+    const bank = String(details.bank || '').trim().toLowerCase();
+
+    if (!bank) {
+      return decline('Choose your bank to continue.', method);
+    }
+    if (bank === DECLINING_BANK) {
+      return decline('Your bank declined the net banking payment.', method);
+    }
+    if (!DEMO_BANKS.includes(bank)) {
+      return decline(
+        `Net banking is not available for "${details.bank}". ` +
+          `Demo banks: ${DEMO_BANKS.join(', ')}.`,
+        method
+      );
+    }
+    // The bank code is kept on the order as `brand` (never account details).
+    return success({ method: 'netbanking', brand: bank });
   }
 
   if (method === 'card') {
@@ -134,4 +161,4 @@ async function charge({ order, method, details = {} }) {
   return decline('Unsupported payment method.', method);
 }
 
-module.exports = { charge, name: 'mock' };
+module.exports = { charge, name: 'mock', DEMO_BANKS, DECLINING_BANK };

@@ -7,6 +7,10 @@ const emptyForm = {
   exp: '',
   price: '',
   stock: '',
+  // SRS FR-1.4: Rx-only medicines need a verified prescription before billing.
+  prescriptionRequired: false,
+  // SRS FR-2.5: used by the refill reminder.
+  refillDays: 30,
   image: null,
 };
 
@@ -30,6 +34,8 @@ export default function MedicineForm({ onCreated }) {
       data.append('exp', form.exp);
       data.append('price', form.price);
       data.append('stock', form.stock);
+      data.append('prescriptionRequired', form.prescriptionRequired ? 'true' : 'false');
+      data.append('refillDays', String(form.refillDays));
       if (form.image) data.append('image', form.image);
 
       const result = await apiFetch('/api/medicines', {
@@ -110,6 +116,36 @@ export default function MedicineForm({ onCreated }) {
             placeholder="0"
             required
           />
+        </div>
+      </div>
+
+      <div className="field-row">
+        <div className="field">
+          <label htmlFor="refillDays">Refill cycle (days)</label>
+          <input
+            id="refillDays"
+            type="number"
+            min="1"
+            max="365"
+            step="1"
+            value={form.refillDays}
+            onChange={(e) => update('refillDays', e.target.value)}
+            placeholder="30"
+            required
+          />
+          <p className="file-hint">How long one pack lasts — drives the refill reminder.</p>
+        </div>
+        <div className="field">
+          <label htmlFor="prescriptionRequired">Prescription</label>
+          <label className="checkbox">
+            <input
+              id="prescriptionRequired"
+              type="checkbox"
+              checked={form.prescriptionRequired}
+              onChange={(e) => update('prescriptionRequired', e.target.checked)}
+            />
+            Prescription-only medicine (Rx)
+          </label>
         </div>
       </div>
 

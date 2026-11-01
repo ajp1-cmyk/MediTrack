@@ -12,7 +12,19 @@ import {
 const METHODS = [
   { id: 'card', label: 'Card', hint: 'Visa / Mastercard sandbox' },
   { id: 'upi', label: 'UPI', hint: 'Pay with a UPI ID' },
+  { id: 'netbanking', label: 'Net banking', hint: 'Demo bank login' },
   { id: 'cod', label: 'Cash on delivery', hint: 'Pay when it arrives' },
+];
+
+// Mirrors DEMO_BANKS in backend/lib/providers/mockPayment.js. The sandbox never
+// opens a real bank login: it only records which bank was chosen.
+const BANKS = [
+  { id: 'hdfc', label: 'HDFC Bank' },
+  { id: 'icici', label: 'ICICI Bank' },
+  { id: 'sbi', label: 'State Bank of India' },
+  { id: 'axis', label: 'Axis Bank' },
+  { id: 'kotak', label: 'Kotak Mahindra Bank' },
+  { id: 'failbank', label: 'Demo Bank (always declines)' },
 ];
 
 export default function Payment() {
@@ -26,6 +38,7 @@ export default function Payment() {
   const [method, setMethod] = useState('card');
   const [card, setCard] = useState({ name: '', number: '', expiry: '', cvv: '' });
   const [vpa, setVpa] = useState('');
+  const [bank, setBank] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
@@ -84,6 +97,11 @@ export default function Payment() {
       return;
     }
 
+    if (method === 'netbanking' && !bank) {
+      setError('Choose your bank to continue.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const details =
@@ -91,7 +109,9 @@ export default function Payment() {
           ? { number: card.number.replace(/\s/g, ''), expiry: card.expiry, cvv: card.cvv }
           : method === 'upi'
             ? { vpa: vpa.trim() }
-            : {};
+            : method === 'netbanking'
+              ? { bank }
+              : {};
 
       const result = await ordersApi.pay(id, { method, details });
 
@@ -314,6 +334,31 @@ export default function Payment() {
                   </div>
                 )}
 
+                {method === 'netbanking' && (
+                  <div className="field">
+                    <label htmlFor="bank">Bank</label>
+                    <select
+                      id="bank"
+                      value={bank}
+                      onChange={(e) => setBank(e.target.value)}
+                      required
+                    >
+                      <option value="" disabled>
+                        Choose your bank
+                      </option>
+                      {BANKS.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="summary-note">
+                      Sandbox only — no bank login is performed and no account details are
+                      stored.
+                    </p>
+                  </div>
+                )}
+
                 {method === 'cod' && (
                   <div className="notice notice-info">
                     Pay <strong>{formatCurrency(order.totals.total)}</strong> in cash when the
@@ -343,7 +388,8 @@ export default function Payment() {
               <p className="sandbox-note">
                 Sandbox gateway — no real money moves. Use <strong>4242 4242 4242 4242</strong>{' '}
                 with any future expiry and CVV to succeed; a card ending in <strong>0002</strong>{' '}
-                is declined.
+                is declined. UPI <strong>fail@bank</strong> and the demo bank that always
+                declines fail on purpose.
               </p>
             </>
           )}

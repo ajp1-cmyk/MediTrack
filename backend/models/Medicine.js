@@ -39,6 +39,24 @@ const medicineSchema = new mongoose.Schema(
         message: 'Stock must be a whole number',
       },
     },
+    // Prescription-only medicine (Rx). When true, checkout is blocked until the
+    // customer has a verified prescription on file (SRS FR-1.4 / FR-2.1).
+    prescriptionRequired: {
+      type: Boolean,
+      default: false,
+    },
+    // How long one pack lasts the customer. The refill reminder on /orders is
+    // calculated from the last purchase date plus this number of days (FR-2.5).
+    refillDays: {
+      type: Number,
+      default: 30,
+      min: [1, 'Refill cycle must be at least 1 day'],
+      max: [365, 'Refill cycle cannot be longer than 365 days'],
+      validate: {
+        validator: Number.isInteger,
+        message: 'Refill cycle must be a whole number of days',
+      },
+    },
     image: {
       type: String,
       default: null, // uploaded image filename inside backend/uploads

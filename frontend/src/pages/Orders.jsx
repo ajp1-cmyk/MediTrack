@@ -1,18 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ordersApi } from '../lib/api.js';
+import { accountApi, ordersApi } from '../lib/api.js';
 import { formatCurrency, formatDate, orderStatusLabel } from '../lib/format.js';
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
+  const [points, setPoints] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     try {
       setError('');
-      const data = await ordersApi.list();
-      setOrders(data);
+      const [orderData, pointsData] = await Promise.all([
+        ordersApi.list(),
+        // MediPoints must never block the order history.
+        accountApi.medipoints().catch(() => null),
+      ]);
+      setOrders(orderData);
+      setPoints(pointsData);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -40,6 +46,19 @@ export default function Orders() {
       </div>
 
       {error && <p className="error">{error}</p>}
+
+      {points && (
+        <section className="panel points-card">
+          <div className="points-balance">
+            <span className="stat-label">MediPoints balance</span>
+            <strong>{points.balance}</strong>
+          </div>
+          <p className="muted">
+            {points.pointsPer100} point{points.pointsPer100 === 1 ? '' : 's'} per ₹100 spent on
+            medicines. Points are credited after a successful payment.
+          </p>
+        </section>
+      )}
 
       {orders.length === 0 ? (
         <div className="empty-card">

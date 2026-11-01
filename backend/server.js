@@ -14,11 +14,16 @@ const adminRouter = require('./routes/admin');
 const medicinesRouter = require('./routes/medicines');
 const cartRouter = require('./routes/cart');
 const ordersRouter = require('./routes/orders');
+const meRouter = require('./routes/me');
 const { getCookieSecret } = require('./lib/cartSession');
 const { runMigrations } = require('./lib/migrations');
+const { inventoryConfig, replenishLowStock, startReplenishSweeper } = require('./lib/inventory');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Handle for the background low-stock sweep (FR-1.1); cleared on shutdown.
+let replenishTimer = null;
 
 // Standard security headers (X-Content-Type-Options, Referrer-Policy, HSTS, …).
 // This service only returns JSON and uploaded images, so the default
@@ -109,6 +114,9 @@ app.use('/api/cart', cartRouter);
 // Order + payment routes.
 app.use('/api/orders', ordersRouter);
 
+// Customer account extras (MediPoints, and later refill reminders).
+app.use('/api/me', meRouter);
+
 
 // Unknown API route.
 app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found' }));
@@ -180,10 +188,33 @@ async function start(port = PORT) {
   // One-time data fixes (e.g. the pre-Phase-3 `staff` → `customer` rename).
   await runMigrations();
 
+  // FR-1.1: refill anything already at/below the low-stock watermark (a
+  // supplier delivery that was missed while the server was down), then keep
+  // sweeping in the background. `startReplenishSweeper` unrefs its timer, so it
+  // never keeps the process — or a test run — alive.
+  if (inventoryConfig().enabled) {
+    const startupRestock = await replenishLowStock();
+    if (startupRestock.restocked.length > 0) {
+      console.log(
+        `[inventory] restocked ${startupRestock.restocked.length} item(s) below the ` +
+          `${startupRestock.watermark}-unit watermark`
+      );
+    }
+  }
+  replenishTimer = startReplenishSweeper();
+
   return new Promise((resolve, reject) => {
     const server = app.listen(port, () => {
       console.log(`MediTrack backend running at http://localhost:${server.address().port}`);
       resolve(server);
+    });
+
+    // Stop the background sweep with the server (used by tests and shutdown).
+    server.on('close', () => {
+      if (replenishTimer) {
+        clearInterval(replenishTimer);
+        replenishTimer = null;
+      }
     });
 
     // Without this handler Node treats EADDRINUSE as an unhandled 'error'
@@ -218,6 +249,10 @@ if (require.main === module) {
 
   const shutdown = async (signal) => {
     console.log(`\n${signal} received — closing MongoDB connection…`);
+    if (replenishTimer) {
+      clearInterval(replenishTimer);
+      replenishTimer = null;
+    }
     await disconnectDB();
     process.exit(0);
   };
