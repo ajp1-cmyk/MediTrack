@@ -1,19 +1,32 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import QuantityStepper from '../components/QuantityStepper.jsx';
 import OrderSummary from '../components/OrderSummary.jsx';
+import HoldCountdown from '../components/HoldCountdown.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { formatCurrency } from '../lib/format.js';
 
 export default function Cart() {
-  const { items, totals, itemCount, hasIssues, loading, updateQuantity, removeItem, clearCart } =
-    useCart();
+  const {
+    cart,
+    items,
+    totals,
+    itemCount,
+    hasIssues,
+    loading,
+    refresh,
+    updateQuantity,
+    removeItem,
+    clearCart,
+  } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState('');
+  // Several lines can lapse in the same second; refresh the cart only once.
+  const refreshingRef = useRef(false);
 
   const run = async (id, action) => {
     setBusyId(id);
@@ -31,6 +44,21 @@ export default function Cart() {
     run(item.medicineId, () => updateQuantity(item.medicineId, quantity));
 
   const remove = (item) => run(item.medicineId, () => removeItem(item.medicineId));
+
+  // FR-1.3: sending the quantity the line already has re-takes the hold, which
+  // is what the "Refresh hold" action does — no separate endpoint.
+  const refreshHold = (item) =>
+    run(item.medicineId, () => updateQuantity(item.medicineId, item.quantity));
+
+  const handleHoldExpired = useCallback(() => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    refresh()
+      .catch(() => {})
+      .finally(() => {
+        refreshingRef.current = false;
+      });
+  }, [refresh]);
 
   const goToCheckout = () => {
     if (user) {
@@ -75,6 +103,21 @@ export default function Cart() {
 
       {error && <p className="error">{error}</p>}
 
+      {cart.holdExpiresAt && !cart.hasExpiredHolds && (
+        <p className="notice notice-warn">
+          Your items are reserved for you for another{' '}
+          <HoldCountdown until={cart.holdExpiresAt} onExpire={handleHoldExpired} />. Changing the
+          cart restarts the clock.
+        </p>
+      )}
+
+      {cart.hasExpiredHolds && (
+        <p className="notice notice-warn">
+          Some items are no longer reserved. Refresh the hold to keep them while you finish
+          shopping.
+        </p>
+      )}
+
       <div className="cart-layout">
         <section className="cart-list">
           {items.map((item) => (
@@ -99,6 +142,29 @@ export default function Cart() {
                 </div>
 
                 {item.issue && <p className="warning">{item.issue}</p>}
+
+                {/* FR-1.2 / FR-1.3: an expired hold keeps the line but shows a refresh action. */}
+                {item.holdActive ? (
+                  <p className="cart-row-hold">
+                    Reserved for you ·{' '}
+                    <HoldCountdown until={item.heldUntil} onExpire={handleHoldExpired} /> left
+                  </p>
+                ) : (
+                  item.holdExpired &&
+                  !item.expired && (
+                    <p className="cart-row-hold expired">
+                      Hold expired — these units are available to other shoppers.{' '}
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={() => refreshHold(item)}
+                        disabled={busyId === item.medicineId}
+                      >
+                        Refresh hold
+                      </button>
+                    </p>
+                  )
+                )}
 
                 <div className="cart-row-actions">
                   <QuantityStepper

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import OrderSummary from '../components/OrderSummary.jsx';
+import HoldCountdown from '../components/HoldCountdown.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { ordersApi } from '../lib/api.js';
@@ -18,7 +19,7 @@ const emptyAddress = {
 
 export default function Checkout() {
   const { user } = useAuth();
-  const { items, totals, loading, refresh } = useCart();
+  const { cart, items, totals, loading, refresh } = useCart();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -77,6 +78,23 @@ export default function Checkout() {
         <h1>Checkout</h1>
         <p>Where should we deliver your order?</p>
       </div>
+
+      {/* NFR-2.2: the remaining hold time is visible before the order is placed. */}
+      {cart.holdExpiresAt && !cart.hasExpiredHolds && (
+        <p className="notice notice-warn">
+          Your items are held for you for another{' '}
+          <HoldCountdown until={cart.holdExpiresAt} onExpire={() => refresh().catch(() => {})} />.
+          Placing the order keeps the stock for 30 minutes while you pay.
+        </p>
+      )}
+
+      {cart.hasExpiredHolds && (
+        <p className="notice notice-warn">
+          Some items are no longer reserved — other shoppers can buy them.{' '}
+          <Link to="/cart">Refresh the hold in your cart</Link> to keep them, or continue if they
+          are still in stock.
+        </p>
+      )}
 
       <form className="checkout-grid" onSubmit={handleSubmit}>
         <section className="form-card checkout-form">

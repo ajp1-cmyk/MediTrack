@@ -25,6 +25,9 @@ const EMPTY_CART = {
   itemCount: 0,
   lineCount: 0,
   hasIssues: false,
+  hasExpiredHolds: false,
+  holdExpiresAt: null,
+  holdSecondsLeft: 0,
   updatedAt: null,
 };
 

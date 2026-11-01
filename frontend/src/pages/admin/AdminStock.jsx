@@ -154,6 +154,12 @@ export default function AdminStock() {
         <strong>{inventory.replenishTo}</strong>. Expired stock is never refilled.
       </p>
 
+      <p className="muted">
+        <strong>Available</strong> is what a new customer can still buy; <strong>Held</strong> is
+        promised to carts for a few minutes (SRS FR-1.2). A held unit becomes a sale at checkout,
+        and goes back to Available if the hold expires.
+      </p>
+
       {showForm && (
         <section className="admin-panel">
           <div className="admin-panel-head">
@@ -198,7 +204,8 @@ export default function AdminStock() {
                 <th>MFD</th>
                 <th>EXP</th>
                 <th>Price</th>
-                <th>Stock</th>
+                <th>Available</th>
+                <th>Held</th>
                 <th />
               </tr>
             </thead>
@@ -241,6 +248,18 @@ export default function AdminStock() {
                         medicine={medicine}
                         onSave={(stock) => updateStock(medicine, stock)}
                       />
+                    </td>
+                    <td>
+                      {medicine.held > 0 ? (
+                        <span
+                          className="badge badge-blue"
+                          title="Units promised to carts by a live hold — they return here when the hold expires"
+                        >
+                          {medicine.held}
+                        </span>
+                      ) : (
+                        <span className="muted">0</span>
+                      )}
                     </td>
                     <td className="table-actions">
                       <button
