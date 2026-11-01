@@ -6,10 +6,12 @@
 // unreadable from JavaScript (XSS cannot steal the cart), cannot be forged
 // (HMAC signature) and cannot be replayed against another database.
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const Cart = require('../models/Cart');
 const Medicine = require('../models/Medicine');
 const { computeTotals } = require('./pricing');
-const { isExpired } = require('./availability');
+const { isExpired, sellabilityIssue } = require('./availability');
+const { httpError } = require('./errors');
 
 const COOKIE_NAME = 'mt_cart';
 const COOKIE_PATH = '/api';
@@ -115,6 +117,64 @@ function touchCart(cart) {
   if (!cart.user) {
     cart.expiresAt = new Date(Date.now() + GUEST_CART_TTL_MS);
   }
+}
+
+/**
+ * Add `quantity` of one medicine to the caller's cart, enforcing live stock.
+ *
+ * Shared by POST /api/cart/items and the wishlist "move to cart" action
+ * (FR-1.5) so both paths can never disagree about expiry, stock limits or the
+ * per-line maximum.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {{ medicineId: string, quantity?: number }} line
+ * @returns {Promise<{ cart: import('../models/Cart'), medicine: import('../models/Medicine') }>}
+ */
+async function addItemToCart(req, res, { medicineId, quantity = 1 } = {}) {
+  const amount = Number(quantity);
+  if (!Number.isInteger(amount) || amount < 1 || amount > MAX_LINE_QUANTITY) {
+    throw httpError(
+      400,
+      `Quantity must be a whole number between 1 and ${MAX_LINE_QUANTITY}`
+    );
+  }
+
+  if (!medicineId || !mongoose.isValidObjectId(medicineId)) {
+    throw httpError(400, 'A valid medicineId is required');
+  }
+
+  const medicine = await Medicine.findById(medicineId);
+  if (!medicine) {
+    throw httpError(404, 'Medicine not found');
+  }
+
+  const issue = sellabilityIssue(medicine);
+  if (issue) {
+    throw httpError(409, issue);
+  }
+
+  const cart = await getOrCreateCart(req, res);
+  const line = cart.items.find((item) => item.medicine.equals(medicine._id));
+  const nextQuantity = (line ? line.quantity : 0) + amount;
+
+  if (nextQuantity > medicine.stock) {
+    throw httpError(
+      409,
+      `Only ${medicine.stock} unit${medicine.stock === 1 ? '' : 's'} of "${medicine.name}" left in stock`
+    );
+  }
+
+  if (line) {
+    line.quantity = nextQuantity;
+  } else {
+    cart.items.push({ medicine: medicine._id, quantity: amount });
+  }
+
+  touchCart(cart);
+  await cart.save();
+
+  return { cart, medicine };
 }
 
 /**
@@ -271,6 +331,7 @@ module.exports = {
   clearCartCookie,
   findCart,
   getOrCreateCart,
+  addItemToCart,
   touchCart,
   mergeGuestCart,
   serializeCart,

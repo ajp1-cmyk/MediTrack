@@ -5,6 +5,7 @@ import AddToCartDialog from './components/AddToCartDialog.jsx';
 import AdminLayout from './components/AdminLayout.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { CartProvider } from './context/CartContext.jsx';
+import { WishlistProvider } from './context/WishlistContext.jsx';
 import Home from './pages/Home.jsx';
 import AddMedicine from './pages/AddMedicine.jsx';
 import Login from './pages/Login.jsx';
@@ -14,6 +15,7 @@ import Checkout from './pages/Checkout.jsx';
 import Payment from './pages/Payment.jsx';
 import OrderConfirmation from './pages/OrderConfirmation.jsx';
 import Orders from './pages/Orders.jsx';
+import Wishlist from './pages/Wishlist.jsx';
 import AdminLogin from './pages/admin/AdminLogin.jsx';
 import AdminDashboard from './pages/admin/AdminDashboard.jsx';
 import AdminStock from './pages/admin/AdminStock.jsx';
@@ -50,6 +52,14 @@ function AppShell() {
           element={
             <ProtectedRoute>
               <Orders />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/wishlist"
+          element={
+            <ProtectedRoute>
+              <Wishlist />
             </ProtectedRoute>
           }
         />
@@ -130,7 +140,9 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <CartProvider>
-          <AppShell />
+          <WishlistProvider>
+            <AppShell />
+          </WishlistProvider>
         </CartProvider>
       </BrowserRouter>
     </AuthProvider>

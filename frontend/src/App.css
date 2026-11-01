@@ -479,6 +479,65 @@
   font-size: 0.85rem;
 }
 
+/* ===================== Wishlist (FR-1.5) ===================== */
+.wishlist-link {
+  position: relative;
+}
+
+.wishlist-badge {
+  background: #db2777;
+}
+
+/* Heart button overlaid on each storefront card. */
+.wishlist-toggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid #e6e8ef;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #9ca3af;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.wishlist-toggle:hover:not(:disabled) {
+  color: #db2777;
+  border-color: #fbcfe8;
+}
+
+.wishlist-toggle.saved {
+  color: #db2777;
+  border-color: #fbcfe8;
+  background: #fff1f7;
+}
+
+.wishlist-toggle:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* Move-to-cart / remove buttons on the wishlist page. */
+.wishlist-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.medicine-card {
+  position: relative;
+}
+
 /* ===================== Add-to-cart button on cards ===================== */
 .medicine-card {
   display: flex;
@@ -1189,10 +1248,18 @@
     grid-column: 2;
     justify-self: end;
   }
+
+  .wishlist-actions {
+    grid-column: 2;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+  }
 }
 
 @media (max-width: 640px) {
-  .cart-link-text {
+  .cart-link-text,
+  .wishlist-link-text {
     display: none;
   }
 }

@@ -236,6 +236,25 @@ export const cartApi = {
   merge: () => apiFetch('/api/cart/merge', { method: 'POST', body: JSON.stringify({}) }),
 };
 
+/** Wishlist endpoints (FR-1.5). Every mutation returns the serialised list. */
+export const wishlistApi = {
+  get: () => apiFetch('/api/wishlist'),
+  add: (medicineId) =>
+    apiFetch('/api/wishlist/items', {
+      method: 'POST',
+      body: JSON.stringify({ medicineId }),
+    }),
+  remove: (medicineId) =>
+    apiFetch(`/api/wishlist/items/${medicineId}`, { method: 'DELETE' }),
+  clear: () => apiFetch('/api/wishlist', { method: 'DELETE' }),
+  // Returns `{ wishlist, cart }` so both navigation badges update at once.
+  moveToCart: (medicineId) =>
+    apiFetch(`/api/wishlist/items/${medicineId}/move-to-cart`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+};
+
 /** Order + payment endpoints. */
 export const ordersApi = {
   create: (shippingAddress) =>

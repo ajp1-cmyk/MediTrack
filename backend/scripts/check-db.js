@@ -78,13 +78,15 @@ async function main() {
 
   // Create the indexes the app relies on (unique email, unique cart/order keys,
   // newest-first stock list, guest-cart TTL, session token hash + TTL, invites,
-  // audit lookups).
+  // audit lookups, one MediPoints entry per order and one wishlist per user).
   await require('../models/Medicine').createIndexes();
   await require('../models/User').createIndexes();
   await require('../models/Cart').createIndexes();
+  await require('../models/Wishlist').createIndexes();
   await require('../models/Order').createIndexes();
   await require('../models/Session').createIndexes();
   await require('../models/AdminInvite').createIndexes();
+  await require('../models/MediPointsEntry').createIndexes();
   await require('../models/AuditLog').createIndexes();
   console.log('✅ indexes     : ensured');
 

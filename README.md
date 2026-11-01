@@ -5,8 +5,8 @@ catalogue, add medicines to a cart, check out, and pay on a sandbox payment page
 
 - **Frontend:** React (Vite) + React Router
 - **Backend:** Node.js + Express
-- **Database:** MongoDB via Mongoose — `medicines`, `users`, `carts`, `orders`, `sessions`,
-  `admininvites`, `medipointsentries` and `auditlogs` collections
+- **Database:** MongoDB via Mongoose — `medicines`, `users`, `carts`, `wishlists`, `orders`,
+  `sessions`, `admininvites`, `medipointsentries` and `auditlogs` collections
 - **Auth:** JWT (`jsonwebtoken`) with bcrypt-hashed passwords (`bcryptjs`)
 - **Cart session:** signed, httpOnly cookie + server-side cart document (`cookie-parser`)
 - **Payments:** provider adapter with a built-in sandbox gateway (`PAYMENT_PROVIDER=mock`)
@@ -34,6 +34,7 @@ meditrack/
 │   │   ├── Medicine.js        # the stock collection ("medicines")
 │   │   ├── User.js            # accounts + roles (customer / staff / admin)
 │   │   ├── Cart.js            # guest / user carts (server-side)
+│   │   ├── Wishlist.js        # saved medicines, one list per account (FR-1.5)
 │   │   ├── Order.js           # order snapshots + payment state
 │   │   ├── Session.js         # refresh-token sessions (hashed, rotating)
 │   │   ├── AdminInvite.js     # single-use staff/admin invites (hashed)
@@ -51,6 +52,7 @@ meditrack/
 │   │   ├── medipoints.js      # earn rule + idempotent credit (FR-2.4)
 │   │   ├── pricing.js         # paise-accurate subtotal, GST, delivery, total
 │   │   ├── cartSession.js     # signed cookie, cart lookup/merge, serialisation
+│   │   ├── wishlist.js        # save / remove / clear, live serialisation (FR-1.5)
 │   │   ├── sessions.js        # refresh cookie, rotation, reuse detection
 │   │   ├── permissions.js     # role → permission map (shared with the SPA)
 │   │   ├── invites.js         # create/accept/revoke admin+staff invites
@@ -72,10 +74,11 @@ meditrack/
 │   │   ├── admin.js           # summary / orders / customers / audit / invites / restock
 │   │   ├── medicines.js       # stock CRUD + image upload (staff + admin)
 │   │   ├── cart.js            # cart endpoints
+│   │   ├── wishlist.js        # save / remove / clear + move-to-cart (FR-1.5)
 │   │   ├── orders.js          # checkout, order history, pay, cancel
 │   │   └── me.js              # customer account extras (MediPoints)
 │   ├── tests/                 # API tests (stock, auth sessions, admin/roles, cart, payments,
-│   │                          # inventory replenishment, MediPoints)
+│   │                          # inventory replenishment, MediPoints, wishlist)
 │   ├── uploads/               # (created at runtime) uploaded images
 │   └── .env.example           # environment template
 └── frontend/
@@ -83,15 +86,16 @@ meditrack/
         ├── App.jsx                        # router + providers + layout
         ├── context/
         │   ├── AuthContext.jsx            # signed-in user, silent refresh, logout
-        │   └── CartContext.jsx            # cart state + merge-on-login + dialog state
+        │   ├── CartContext.jsx            # cart state + merge-on-login + dialog state
+        │   └── WishlistContext.jsx        # account wishlist, empty on sign-out
         ├── lib/
         │   ├── api.js                     # fetch wrapper (memory JWT + refresh) + APIs
         │   └── format.js                  # currency, dates, status labels
         ├── components/
-        │   ├── Navbar.jsx                 # nav + cart badge + user chip
+        │   ├── Navbar.jsx                 # nav + cart/wishlist badges + user chip
         │   ├── ProtectedRoute.jsx         # role-guarded routes
         │   ├── MedicineForm.jsx           # stock entry form
-        │   ├── MedicineList.jsx           # stock list + add-to-cart buttons
+        │   ├── MedicineList.jsx           # stock list + add-to-cart + save-for-later heart
         │   ├── Modal.jsx                  # accessible native <dialog> wrapper
         │   ├── AddToCartDialog.jsx        # quantity + confirmation dialog
         │   ├── QuantityStepper.jsx        # −/+ control
@@ -106,6 +110,7 @@ meditrack/
             ├── Payment.jsx                # payment methods + sandbox gateway
             ├── OrderConfirmation.jsx      # receipt / order detail
             ├── Orders.jsx                 # order history
+            ├── Wishlist.jsx               # saved medicines + move to cart (FR-1.5)
             └── admin/
                 ├── AdminLogin.jsx         # separate back-office sign-in
                 ├── AdminDashboard.jsx     # counters + recent orders
@@ -158,7 +163,8 @@ npm run db:check
 
 `db:check` prints the host (password redacted), the **database it will use**, the server
 version, the collections and how many documents each holds, and creates the indexes the app
-needs (`medicines`, `users`, `carts`, `orders`). If the connection fails it tells you what to
+needs (`medicines`, `users`, `carts`, `wishlists`, `orders`, `sessions`, `admininvites`,
+`medipointsentries`, `auditlogs`). If the connection fails it tells you what to
 fix — wrong password, unencoded special characters in the password, `mongodb+srv` hostname
 typo, or an Atlas IP allow-list entry that is missing.
 
@@ -336,11 +342,11 @@ the API with relative URLs from the frontend.
 
 ### Shopping access
 
-| Who | Browse stock | Add to cart | Checkout / pay | View orders |
-| --- | ------------ | ----------- | -------------- | ----------- |
-| Anonymous visitor | ✅ | ✅ (cookie cart) | ❌ — sign in first | ❌ |
-| `customer` | ✅ | ✅ | ✅ | ✅ (own orders) |
-| `staff` / `admin` | ✅ | ✅ | ✅ | ✅ (own orders) |
+| Who | Browse stock | Add to cart | Checkout / pay | View orders | Wishlist |
+| --- | ------------ | ----------- | -------------- | ----------- | -------- |
+| Anonymous visitor | ✅ | ✅ (cookie cart) | ❌ — sign in first | ❌ | ❌ — sign in first |
+| `customer` | ✅ | ✅ | ✅ | ✅ (own orders) | ✅ |
+| `staff` / `admin` | ✅ | ✅ | ✅ | ✅ (own orders) | ✅ |
 
 - Guests get a real server-side cart identified by the signed `mt_cart` cookie; no
   account is needed to shop.
@@ -598,6 +604,22 @@ Every mutation returns the freshly serialised cart:
 }
 ```
 
+### Wishlist (signed in)
+
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| GET | `/api/wishlist` | Saved items with live price, stock, expiry and availability |
+| POST | `/api/wishlist/items` | `{ medicineId }` — save a medicine (idempotent) |
+| DELETE | `/api/wishlist/items/:medicineId` | Remove one medicine (idempotent) |
+| POST | `/api/wishlist/items/:medicineId/move-to-cart` | Add to the cart with the same stock checks as `POST /api/cart/items`, then drop it from the wishlist; returns `{ wishlist, cart }` |
+| DELETE | `/api/wishlist` | Empty the wishlist |
+
+There is **one wishlist per account** and it is private to its owner (the user id always comes
+from the JWT). Saving never reserves stock — only the cart does — so out-of-stock and expired
+medicines can be saved; they come back with `available: false` and an `issue`, and the page
+disables **Move to cart** until they are sellable. Prices and stock are read live on every
+request, exactly like the cart.
+
 ### Orders & payments
 
 | Method | Endpoint | Access | Description |
@@ -655,6 +677,7 @@ same order without charging again.
 | ----- | ---- | --- |
 | `/` | Landing page with the stock list and add-to-cart buttons | everyone |
 | `/cart` | Cart: quantities, availability warnings, totals | everyone (guest cookie or signed in) |
+| `/wishlist` | Wishlist: saved medicines, move to cart, remove | signed in |
 | `/login` | Customer sign in / create account | everyone |
 | `/admin/login` | Staff / administrator sign-in | everyone (customers rejected) |
 | `/admin/register` | Accept a single-use invite link (`?invite=…`) | invite holders |
@@ -715,7 +738,9 @@ stats and the audit log. `tests/inventory.test.js` covers the low-stock watermar
 stock being skipped, the configurable watermark/target, the concurrent-sweep guard, RBAC on
 the manual restock endpoint and the audit entry, and `tests/medipoints.test.js` covers the
 per-₹100 rule, credit-only-after-payment, one entry per order, COD/failed payments earning
-nothing and per-customer isolation.
+nothing and per-customer isolation. `tests/wishlist.test.js` covers saving, idempotency,
+live price/stock/expiry flags, per-account privacy, move-to-cart (including incrementing an
+existing cart line and refusing at the stock limit), removal, clearing and deleted medicines.
 **No MongoDB installation is required to run it.**
 
 ## SRS traceability
@@ -728,7 +753,7 @@ Where each requirement is implemented. Update the "Status" column as later phase
 | FR-1.2 atomic soft hold on add-to-cart | 🚧 planned (Phase C) | stock is currently reserved at checkout (`lib/orderService.js`) | `tests/cart-orders.test.js` |
 | FR-1.3 release an expired hold | ⚠️ partial | order reservations expire (`expireStaleOrders`); cart holds are Phase C | `tests/cart-orders.test.js` |
 | FR-1.4 flag Rx-only medicines and block billing | 🚧 planned (Phase D) | `prescriptionRequired` field added in Phase A | `tests/inventory.test.js` |
-| FR-1.5 Wishlist separate from Cart | 🚧 planned (Phase B) | — | — |
+| FR-1.5 Wishlist separate from Cart | ✅ | `models/Wishlist.js`, `lib/wishlist.js`, `routes/wishlist.js`, `pages/Wishlist.jsx`, `context/WishlistContext.jsx` | `tests/wishlist.test.js` |
 | FR-1.6 customer registration | ✅ | `routes/auth.js` | `tests/api.test.js` |
 | FR-1.7 customer login | ✅ | `routes/auth.js`, `lib/sessions.js` | `tests/api.test.js`, `tests/sessions.test.js` |
 | FR-2.1 block checkout until Rx verified | 🚧 planned (Phase D) | — | — |

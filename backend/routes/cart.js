@@ -21,7 +21,7 @@ const { sellabilityIssue } = require('../lib/availability');
 const {
   MAX_LINE_QUANTITY,
   findCart,
-  getOrCreateCart,
+  addItemToCart,
   touchCart,
   mergeGuestCart,
   serializeCart,
@@ -85,29 +85,12 @@ router.post(
   '/items',
   asyncHandler(async (req, res) => {
     const body = req.body || {};
-    const quantity = body.quantity === undefined ? 1 : readQuantity(body.quantity, { min: 1 });
-    const medicine = await loadMedicine(body.medicineId);
-    assertSellable(medicine);
-
-    const cart = await getOrCreateCart(req, res);
-    const line = cart.items.find((item) => item.medicine.equals(medicine._id));
-    const nextQuantity = (line ? line.quantity : 0) + quantity;
-
-    if (nextQuantity > medicine.stock) {
-      throw httpError(
-        409,
-        `Only ${medicine.stock} unit${medicine.stock === 1 ? '' : 's'} of "${medicine.name}" left in stock`
-      );
-    }
-
-    if (line) {
-      line.quantity = nextQuantity;
-    } else {
-      cart.items.push({ medicine: medicine._id, quantity });
-    }
-
-    touchCart(cart);
-    await cart.save();
+    // Stock, expiry and the per-line limit are enforced inside addItemToCart(),
+    // which the wishlist "move to cart" action shares.
+    const { cart } = await addItemToCart(req, res, {
+      medicineId: body.medicineId,
+      quantity: body.quantity === undefined ? 1 : body.quantity,
+    });
 
     res.status(201).json(await serializeCart(cart));
   })

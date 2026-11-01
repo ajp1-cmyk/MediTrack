@@ -15,6 +15,7 @@ const medicinesRouter = require('./routes/medicines');
 const cartRouter = require('./routes/cart');
 const ordersRouter = require('./routes/orders');
 const meRouter = require('./routes/me');
+const wishlistRouter = require('./routes/wishlist');
 const { getCookieSecret } = require('./lib/cartSession');
 const { runMigrations } = require('./lib/migrations');
 const { inventoryConfig, replenishLowStock, startReplenishSweeper } = require('./lib/inventory');
@@ -116,6 +117,9 @@ app.use('/api/orders', ordersRouter);
 
 // Customer account extras (MediPoints, and later refill reminders).
 app.use('/api/me', meRouter);
+
+// Wishlist (save for later) — signed-in accounts only (FR-1.5).
+app.use('/api/wishlist', wishlistRouter);
 
 
 // Unknown API route.

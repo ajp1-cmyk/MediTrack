@@ -1,10 +1,12 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
+import { useWishlist } from '../context/WishlistContext.jsx';
 
 export default function Navbar() {
   const { user, isBackOffice, loading, logout } = useAuth();
   const { itemCount } = useCart();
+  const { itemCount: wishlistCount } = useWishlist();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -42,6 +44,22 @@ export default function Navbar() {
             className={({ isActive }) => `btn btn-ghost${isActive ? ' active' : ''}`}
           >
             Orders
+          </NavLink>
+        )}
+
+        {user && (
+          <NavLink
+            to="/wishlist"
+            className={({ isActive }) =>
+              `btn btn-ghost wishlist-link${isActive ? ' active' : ''}`
+            }
+            aria-label={`Wishlist, ${wishlistCount} item${wishlistCount === 1 ? '' : 's'}`}
+          >
+            <span aria-hidden="true">♡</span>
+            <span className="wishlist-link-text">Wishlist</span>
+            {wishlistCount > 0 && (
+              <span className="cart-badge wishlist-badge">{wishlistCount}</span>
+            )}
           </NavLink>
         )}
 
