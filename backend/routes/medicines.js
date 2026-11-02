@@ -5,7 +5,6 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const Medicine = require('../models/Medicine');
 const { requireAuth, requirePermission } = require('../middleware/auth');
 const { recordAudit } = require('../lib/audit');
@@ -13,11 +12,8 @@ const { httpError, asyncHandler } = require('../lib/errors');
 
 const router = express.Router();
 
-// Where uploaded medicine images are stored.
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
+// Where uploaded medicine images are stored (disk locally, Blobs on Netlify).
+const { UPLOADS_DIR, persistUpload, removeUpload } = require('../lib/imageStore');
 
 // Configure multer to save files to disk with a unique name.
 const storage = multer.diskStorage({
@@ -90,12 +86,6 @@ function medicineSnapshot(medicine) {
 // every write operation. Customers get 403.
 const canEditStock = [requireAuth, requirePermission('catalog:write')];
 
-/** Delete an uploaded file from disk, ignoring "already gone" errors. */
-function removeUpload(filename) {
-  if (!filename) return;
-  fs.unlink(path.join(UPLOADS_DIR, filename), () => {});
-}
-
 // GET /api/medicines - list all medicines (newest first)
 router.get(
   '/',
@@ -122,6 +112,7 @@ router.post(
   '/',
   canEditStock,
   upload.single('image'),
+  persistUpload,
   asyncHandler(async (req, res) => {
     const { name, mfd, exp, price, stock } = req.body;
 
@@ -173,6 +164,7 @@ router.patch(
   '/:id',
   canEditStock,
   upload.single('image'),
+  persistUpload,
   asyncHandler(async (req, res) => {
     const medicine = await Medicine.findById(req.params.id);
     if (!medicine) {

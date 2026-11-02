@@ -4,7 +4,6 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
-const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
 const { connectDB, disconnectDB } = require('./db');
@@ -20,6 +19,7 @@ const { getCookieSecret } = require('./lib/cartSession');
 const { runMigrations } = require('./lib/migrations');
 const { inventoryConfig, replenishLowStock, startReplenishSweeper } = require('./lib/inventory');
 const { startHoldSweeper } = require('./lib/cartHolds');
+const { removeUpload, serveUploads } = require('./lib/imageStore');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -50,20 +50,26 @@ const corsOrigins = (process.env.CORS_ORIGIN || '')
   .filter(Boolean);
 
 app.use(
-  cors({
-    origin(origin, callback) {
-      // No Origin header: same-origin requests, curl, server-to-server.
-      if (!origin) return callback(null, true);
-      if (corsOrigins.includes(origin)) return callback(null, true);
-      // Development without CORS_ORIGIN: accept the Vite dev server.
-      if (corsOrigins.length === 0 && process.env.NODE_ENV !== 'production') {
-        return callback(null, true);
-      }
-      const err = new Error('Origin not allowed by CORS');
-      err.status = 403;
-      return callback(err);
-    },
-    credentials: true, // required for the signed cart cookie
+  cors((req, callback) => {
+    const origin = req.headers.origin;
+    const allow = (allowed) => callback(null, { origin: allowed, credentials: true }); // credentials: signed cart cookie
+    // No Origin header: same-origin requests, curl, server-to-server.
+    if (!origin) return allow(true);
+    if (corsOrigins.includes(origin)) return allow(true);
+    // The SPA served from the same host as the API (e.g. on Netlify).
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    try {
+      if (host && new URL(origin).host === host) return allow(true);
+    } catch {
+      // Malformed Origin header: fall through to the checks below.
+    }
+    // Development without CORS_ORIGIN: accept the Vite dev server.
+    if (corsOrigins.length === 0 && process.env.NODE_ENV !== 'production') {
+      return allow(true);
+    }
+    const err = new Error('Origin not allowed by CORS');
+    err.status = 403;
+    return callback(err);
   })
 );
 app.use(express.json());
@@ -78,6 +84,8 @@ if (process.env.NODE_ENV === 'production') {
   // Health checks from the platform itself usually arrive without a Host
   // header, so those are let through.
   app.use((req, res, next) => {
+    // Netlify terminates TLS and enforces HTTPS before the function runs.
+    if (process.env.MEDITRACK_SERVERLESS === '1') return next();
     if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
       return next();
     }
@@ -89,8 +97,8 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Serve uploaded medicine images as static files.
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve uploaded medicine images (disk locally, Netlify Blobs on Netlify).
+app.use('/uploads', serveUploads());
 
 // Health check endpoint.
 app.get('/api/health', (req, res) => {
@@ -133,6 +141,7 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found
 app.use((err, req, res, _next) => {
   if (req.file) {
     fs.unlink(req.file.path, () => {});
+    removeUpload(req.file.filename);
   }
 
   let status = err.status || err.statusCode || 500;

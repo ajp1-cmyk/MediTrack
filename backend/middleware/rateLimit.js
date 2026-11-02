@@ -46,7 +46,10 @@ function jsonLimiter({ limit, keyGenerator, skipSuccessfulRequests = false, mess
  * express-rate-limit recommends for custom key generators.
  */
 function ipKey(req) {
-  return ipKeyGenerator(req.ip);
+  // On Netlify Functions there is no socket address; the platform passes the
+  // client IP in its own header instead.
+  const ip = req.headers['x-nf-client-connection-ip'] || req.ip || 'unknown';
+  return ipKeyGenerator(ip);
 }
 
 /** Key used by the sign-in limiter: one bucket per IP + email pair. */
