@@ -1,0 +1,2180 @@
+% ===========================================================================
+%  MediTrack -- A Secure Pharmacy Storefront and Inventory Management System
+%  Technical Project Report, Revision 2.0
+%
+%  LaTeX edition of docs/mediTrackReport404_edited.docx
+%
+%  HOW TO USE IN OVERLEAF
+%    1. Upload this file (it can be named main.tex) as the main document.
+%    2. Upload the folder "figures/" next to it, containing:
+%         fig2-information-flow.png       (Fig. 2, information flow diagram)
+%         fig4-domain-class-model.png     (Fig. 4, UML class model)
+%         fig7-er-shopping.png            (Fig. 7, ER diagram, part 1)
+%         fig8-er-orders.png              (Fig. 8, ER diagram, part 2)
+%         fig9-er-services.png            (Fig. 9, ER diagram, part 3)
+%         mnnit-logo.png                  (MNNIT emblem, title page)
+%         sig-abhishek-rana.png           (signature, title page)
+%         sig-n-varshitha.png             (signature, title page)
+%         sig-raj-verma.png               (signature, title page)
+%       The document still compiles if any of them is missing: a framed
+%       placeholder is printed instead of the picture.
+%    3. Compile with pdfLaTeX (the Overleaf default); run it twice so that the
+%       table of contents, the list of tables and the list of figures fill in.
+%
+%  Structure (mirrors the DOCX one-to-one)
+%    title page, Document Control (Table 1), table of contents, list of tables,
+%    list of figures, Abstract, Index Terms, clauses 1-9 (Introduction ...
+%    Conclusion and Future Work), References, Appendices A-E.
+%    Table numbers 1-35 are fixed with \thetable so that the LaTeX edition and
+%    the DOCX edition carry identical table numbers; all cross-references in the
+%    body use \ref, so renumbering a table only means editing that one line.
+%
+%  Verified build: Tectonic 0.17 (XeTeX engine), two runs, no errors and no
+%  undefined references; 51 pages. The remaining warnings are sub-point overfull
+%  hboxes (<= 1.8 pt) caused by fixed-width table columns.
+%
+%  The rupee sign is typeset with the tfrupee package when it is installed and
+%  degrades to "Rs." otherwise, so the file also builds on a minimal TeX Live.
+% ===========================================================================
+\documentclass[11pt,a4paper]{article}
+
+% ---------- encoding, fonts, page geometry ----------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[a4paper,left=2.5cm,right=2.5cm,top=2.9cm,bottom=2.5cm,headheight=15pt]{geometry}
+\usepackage{microtype}
+
+% ---------- tables, figures, lists ----------
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{fancyvrb}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb}
+
+% ---------- headers, footers, hyperlinks ----------
+\usepackage{fancyhdr}
+\usepackage[hidelinks,bookmarksnumbered]{hyperref}
+
+% ---------- page border, all pages (background package) ----------
+\usepackage{tikz}
+\usepackage{background}
+% one border for the whole document; change "pages=all" to "pages=some" plus\n% \BgThispage in the title page for a front-page-only frame
+\backgroundsetup{
+  scale=1,
+  angle=0,
+  opacity=1,
+  color=black,
+  pages=all,
+  position={current page.north west},
+  nodeanchor=north west,
+  hshift=0.9cm,
+  vshift=-0.9cm,
+  contents={%
+    \setlength{\fboxsep}{0pt}%
+    \setlength{\fboxrule}{1pt}%
+    \framebox[\dimexpr\paperwidth-1.8cm\relax]{%
+      \rule{0pt}{\dimexpr\paperheight-1.8cm\relax}}%
+  }
+}
+
+% ---------- rupee sign, with a portable fallback ----------
+\IfFileExists{tfrupee.sty}{\usepackage{tfrupee}}{}
+\providecommand{\rupee}{Rs.\,}
+
+% ---------- breakable \texttt: file paths and endpoints may break at / - . _ ----------
+\ExplSyntaxOn
+\cs_new_protected:Npn \__mt_breakable_code:n #1
+  {
+    \tl_set:Nn \l_tmpa_tl {#1}
+    \int_compare:nNnT { \tl_count:N \l_tmpa_tl } > { 10 }
+      { \regex_replace_all:nnN {([/\-\.\?_=:])} {\1\c{allowbreak}} \l_tmpa_tl }
+    \tl_use:N \l_tmpa_tl
+  }
+\RenewDocumentCommand{\texttt}{m}{{\ttfamily\__mt_breakable_code:n {#1}}}
+\ExplSyntaxOff
+
+% ---------- column types and spacing ----------
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\setlength{\LTpre}{8pt}
+\setlength{\LTpost}{8pt}
+\renewcommand{\arraystretch}{1.12}
+\setlength{\tabcolsep}{4.0pt}
+\setlength{\parskip}{2pt}
+\setlength{\emergencystretch}{1.5em}
+
+% ---------- caption style: "Table 1. ..." and "Fig. 1. ..." ----------
+\captionsetup{labelsep=period,labelfont=bf,font=small,skip=4pt}
+\captionsetup[table]{name=Table}
+\captionsetup[figure]{name=Fig.}
+
+% ---------- verbatim style for code, pseudo-code and ASCII diagrams ----------
+\DefineVerbatimEnvironment{codeblock}{Verbatim}%
+  {fontsize=\small,frame=leftline,framerule=0.4pt,rulecolor=\color{gray!55},
+   xleftmargin=6pt,framesep=4pt,samepage}
+\DefineVerbatimEnvironment{asciiart}{Verbatim}%
+  {fontsize=\scriptsize,xleftmargin=0pt,framesep=0pt,samepage}
+\DefineVerbatimEnvironment{console}{Verbatim}%
+  {fontsize=\scriptsize,frame=single,framerule=0.4pt,rulecolor=\color{gray!45},
+   xleftmargin=2pt,framesep=3pt,samepage}
+
+% ---------- page style ----------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize MediTrack --- Technical Project Report, Revision 2.0}
+\fancyfoot[C]{\footnotesize\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ---------- helpers: figures with a graceful fallback ----------
+\newcommand{\reportfigure}[3][width=\linewidth]{%
+  \IfFileExists{figures/#2}%
+    {\includegraphics[#1]{figures/#2}}%
+    {\fbox{\parbox[c][5.5cm][c]{0.88\linewidth}{\centering\itshape
+      Image \texttt{#2} not uploaded --- add it to the \texttt{figures/} folder.}}}%
+  \caption{#3}}
+
+\newcommand{\signature}[1]{%
+  \IfFileExists{figures/#1}%
+    {\includegraphics[height=0.85cm]{figures/#1}}%
+    {\rule{2.6cm}{0.4pt}}}
+
+\begin{document}
+
+% ===========================================================================
+%  TITLE PAGE
+% ===========================================================================
+\begin{titlepage}
+\thispagestyle{empty}
+\centering
+% horizontal rule, set slightly above the text block as on the institute title page
+\vspace*{-1.45cm}
+\rule{\textwidth}{0.4pt}\par
+
+\vspace{1.60cm}
+\IfFileExists{figures/mnnit-logo.png}%
+  {\includegraphics[height=3.35cm]{figures/mnnit-logo.png}}%
+  {\fbox{\parbox[c][3.35cm][c]{3.0cm}{\centering\itshape MNNIT logo}}}
+\par
+
+\vspace{1.15cm}
+{\fontsize{19}{23}\selectfont Department of Computer Science \& Engineering\par}
+\vspace{0.30cm}
+{\fontsize{19}{23}\selectfont Motilal Nehru National Institute of Technology Allahabad\par}
+
+\vspace{1.65cm}
+{\huge\bfseries TECHNICAL PROJECT REPORT:\\[0.25cm] MEDITRACK\par}
+
+\vspace{0.55cm}
+{\large A Secure Pharmacy Storefront and Inventory Management System\par}
+
+\vspace{1.20cm}
+{\Large\bfseries PROJECT REPORT\par}
+
+\vspace{0.45cm}
+{\large Submitted in partial fulfilment of the requirements for\par}
+\vspace{0.25cm}
+{\large [Secure E-Commerce / Information Security]\par}
+\vspace{0.35cm}
+{\large Department: CSED\par}
+
+\vspace{1.35cm}
+% two adjacent columns: candidates (with signatures) on the left,
+% guide and academic year on the right
+\begin{minipage}[t]{0.47\textwidth}
+  \centering
+  {\large\bfseries Submitted by:\par}
+  \vspace{0.40cm}
+  {\large
+  \begin{tabular}{@{}l@{\hspace{0.45cm}}l@{}}
+    Abhishek Rana  & \signature{sig-abhishek-rana.png} \\[0.18cm]
+    Varshitha      & \signature{sig-n-varshitha.png}    \\[0.18cm]
+    Raj Verma      & \signature{sig-raj-verma.png}      \\
+  \end{tabular}\par}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.47\textwidth}
+  \centering
+  {\large\textbf{Guided by:} Prof. M. M. Gore\par}
+  \vspace{0.22cm}
+  {\large\textbf{Academic Year:} 2026--2027\par}
+\end{minipage}
+\end{titlepage}
+
+% ===========================================================================
+%  FRONT MATTER
+% ===========================================================================
+\pagenumbering{roman}
+\pagestyle{fancy}
+
+\section*{Document Control}
+\addcontentsline{toc}{section}{Document Control}
+
+\renewcommand{\thetable}{1}
+\begin{longtable}{@{}L{4.30cm}L{11.42cm}@{}}
+\caption{Document identification and revision history}\label{tab:doccontrol}\\
+\toprule
+\textbf{Field} & \textbf{Value}\\
+\midrule
+\endfirsthead
+\multicolumn{2}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Field} & \textbf{Value}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Project & MediTrack --- secure e-commerce portal for a healthcare store\\
+Document & Technical Project Report (design, implementation and verification)\\
+Revision & 2.0 --- replaces the draft ``MediTrack Project Report v1.0''\\
+Date & 30 October 2026\\
+Requirements baseline & MediTrack Software Requirements Specification, Version 1.0 (IEEE~830 structure)\\
+Implementation baseline & Repository \texttt{meditrack}, commit \texttt{ca672d9} plus the Phase~A working-tree changes described in Clause~5 and Clause~7\\
+Reporting standards & IEEE Std 830-1998 (requirements), IEEE Std 1016-2009 (design description), IEEE Std 829-2008 (test documentation), IEEE citation style\\
+Evidence basis & Source-code inspection, automated test execution and production build executed on the development machine (Clause~7.5)\\
+\end{longtable}
+
+% ---------------------------------------------------------------------------
+%  Table of contents and the two lists generated on the second LaTeX run
+% ---------------------------------------------------------------------------
+\clearpage
+\phantomsection
+\addcontentsline{toc}{section}{Table of Contents}
+\tableofcontents
+
+\clearpage
+\phantomsection
+\addcontentsline{toc}{section}{List of Tables}
+\listoftables
+
+\clearpage
+\phantomsection
+\addcontentsline{toc}{section}{List of Figures}
+\listoffigures
+
+% ---------------------------------------------------------------------------
+%  Abstract and index terms
+% ---------------------------------------------------------------------------
+\clearpage
+\section*{Abstract}
+\addcontentsline{toc}{section}{Abstract}
+
+MediTrack is a web-based pharmacy storefront combined with a medicine-inventory
+administration console. It supports catalogue browsing with live stock, guest and
+signed-in shopping carts, prescription-aware checkout (in progress), sandbox payment,
+order fulfilment, role-based back-office operations and an append-only audit trail. The
+system is implemented as a three-tier application: a React single-page frontend, a
+Node.js/Express REST API and a MongoDB database accessed through Mongoose.
+
+This report documents the project against the MediTrack Software Requirements
+Specification v1.0, using the requirements, design, implementation and verification
+clauses prescribed by IEEE Std 830-1998, IEEE Std 1016-2009 and IEEE Std 829-2008.
+Unlike the earlier draft of this report, which relied on repository documentation
+alone, every implementation statement here was checked against the source tree, and
+every quantitative statement was produced by executing the artefact on the development
+machine.
+
+At the time of writing, the automated backend suite comprises 97 test cases in eight
+files, all passing, and the frontend production build completes without warnings.
+Verified capabilities include atomic stock reservation with rollback (FR-2.2, NFR-2.1),
+server-side pricing computed in paise, a seven-state order lifecycle, card, UPI,
+net-banking and cash-on-delivery sandbox payments (FR-2.3), low-stock replenishment at
+a configurable water-mark of 10 units up to 100 (FR-1.1), an idempotent MediPoints
+ledger credited only after a confirmed payment (FR-2.4), hashed passwords with
+short-lived access tokens and rotating refresh sessions (NFR-1.2), permission-based
+authorisation on every protected route (NFR-1.1), and an audit log with no update or
+delete endpoint (NFR-1.3). Four SRS capabilities remain planned and are specified but
+not implemented: cart-level soft holds with automatic release (FR-1.2, FR-1.3), a
+wishlist (FR-1.5), prescription upload and verification gating (FR-1.4, FR-2.1) and
+refill reminders routed to teleconsultation (FR-2.5). Clause~8.2 gives the
+item-by-item assessment and Clause~9.2 the plan for closing them.
+
+\subsection*{Index Terms}
+\addcontentsline{toc}{subsection}{Index Terms}
+Pharmacy e-commerce; medicine inventory; stock reservation; concurrency control;
+MongoDB; Mongoose; React; Express; JSON Web Token; role-based access control;
+refresh-token rotation; sandbox payment gateway; append-only audit log; IEEE Std 830;
+IEEE Std 1016; IEEE Std 829.
+
+% ---------------------------------------------------------------------------
+%  Main matter starts here: arabic page numbers, clause 1
+% ---------------------------------------------------------------------------
+\clearpage
+\pagenumbering{arabic}
+
+\section{Introduction}
+
+\subsection{Purpose}
+This report describes the requirements, design, implementation and verification of
+MediTrack, a prototype pharmacy storefront. It is intended for the course evaluator,
+the project guide and the successor team that will continue development, and it serves
+three purposes: to record what the system does and why it is built that way, to
+demonstrate traceability from each requirement in the SRS to code and to an executing
+test, and to state honestly which requirements are not yet met.
+
+\subsection{Scope}
+The reported system covers the customer storefront (catalogue, cart, checkout, payment,
+order history, MediPoints; wishlist planned), the Inventory Manager console (stock
+administration, order fulfilment, customers, invitations, audit review, manual
+replenishment) and the platform services behind them (authentication, sessions,
+authorisation, pricing, inventory consistency, payment adapter, audit logging). The SRS
+item ``regional demand pattern detection'' is explicitly deferred by the SRS itself and
+is out of scope here.
+
+Payment processing is restricted to a deterministic sandbox provider; no real money
+moves and no payment credentials are stored. Hardware-dependent barcode/QR and RFID
+interactions are simulated or deferred (SRS constraints CON-2 and CON-3).
+
+\subsection{Definitions, Acronyms and Abbreviations}
+
+{\footnotesize
+\begin{longtable}{@{}L{3.30cm}L{12.42cm}@{}}
+\toprule
+\textbf{Term} & \textbf{Definition as used in this report}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Term} & \textbf{Definition as used in this report}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+API & Application Programming Interface; here the REST interface served under \texttt{/api}.\\
+Audit log & Append-only collection (\texttt{auditlogs}) recording who changed what, before/after values and request metadata.\\
+Cart hold (soft hold) & Short-lived stock reservation created when an item enters a cart (SRS FR-1.2). Planned; see Clause~8.2.\\
+CRM & Customer Relationship Management; purchase history, MediPoints and refill reminders in MediTrack.\\
+JWT & JSON Web Token; the short-lived bearer credential used for API calls.\\
+MediPoints & Loyalty points credited to a customer after a confirmed payment (SRS FR-2.4).\\
+Mongoose & Object-document mapper for MongoDB supplying schemas, validation and index definitions.\\
+NFR & Non-functional requirement.\\
+Paise & One hundredth of a rupee; the integer unit used for all money arithmetic to avoid floating-point drift.\\
+RBAC & Role-Based Access Control; each role maps to explicit permissions in \mbox{\texttt{lib/permissions.js}}.\\
+Rx & Prescription. Prescription-only medicines require a verified prescription before billing (SRS FR-1.4, FR-2.1).\\
+Sandbox gateway & Test-mode payment provider with deterministic success/failure rules; default \texttt{PAYMENT\_PROVIDER=mock}.\\
+TTL & Time To Live; validity window of a token, session, hold or reservation.\\
+SRS & Software Requirements Specification, MediTrack v1.0.\\
+\end{longtable}
+}
+
+\subsection{Applicable Documents}
+\begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
+  \item MediTrack Software Requirements Specification, Version 1.0 (13 pages, prepared per IEEE Std 830-1998 structure) [2].
+  \item IEEE Std 830-1998, IEEE Recommended Practice for Software Requirements Specifications [1].
+  \item IEEE Std 1016-2009, IEEE Standard for Information Technology --- Software Design Descriptions [3].
+  \item IEEE Std 829-2008, IEEE Standard for Software and System Test Documentation [4].
+  \item Alba, E., \emph{Writing a Scientific/Technical Report}, Universidad de M\'alaga, 2002 [5].
+  \item Project source repository and its README [6].
+\end{itemize}
+
+\subsection{Report Organisation}
+Clause~2 gives the overall product description. Clause~3 specifies requirements and
+their current status. Clause~4 presents the design using the views of IEEE Std 1016.
+Clause~5 describes the implementation. Clause~6 documents the data model and
+interfaces. Clause~7 documents verification in the shape recommended by IEEE Std 829
+and reports measured results. Clause~8 discusses results, trade-offs, limitations and
+risks. Clause~9 concludes and sets out future work. Appendices A--E hold the
+traceability matrix, API reference, configuration reference, execution log and
+reproduction procedure.
+
+% ===========================================================================
+%  2. OVERALL DESCRIPTION
+% ===========================================================================
+\section{Overall Description}
+
+\subsection{Product Perspective}
+MediTrack is a standalone, three-tier e-commerce system for a single pharmacy. It
+replaces a manual counter workflow in which stock levels and sales records are kept
+separately. The SRS fixes the architecture: a React client, a Node.js/Express API, a
+MongoDB database and a third-party sandbox payment gateway. The prototype is
+delivered as an academic system and is not integrated with any existing hospital,
+insurance or regulatory system.
+
+Two architectural properties shape the rest of the design. First, the browser is
+never trusted with money or stock: prices, availability and totals are recomputed on
+the server on every read and write. Second, privileged operations are separated from
+customer operations at the API boundary rather than in the user interface, so hiding
+a button is never mistaken for a security control.
+
+\subsection{Product Functions}
+
+\renewcommand{\thetable}{2}
+\begin{longtable}{@{}L{3.00cm}L{9.04cm}L{3.40cm}@{}}
+\caption{Product functions and implementation status}\label{tab:functions}\\
+\toprule
+\textbf{Function group} & \textbf{Behaviour} & \textbf{Status}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Function group} & \textbf{Behaviour} & \textbf{Status}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Catalogue & Public listing of medicines with name, manufacturing/expiry dates, price, stock and image; expired and zero-stock items are marked unavailable. & Implemented\\
+Inventory administration & Staff/admin create, update and delete medicines, upload an image, mark prescription-only (Rx) items and set a refill cycle. & Implemented\\
+Replenishment & Medicines at or below a configurable watermark (default 10) are restored to a target level (default 100) by a background sweep or an on-demand action; expired stock is excluded. & Implemented\\
+Cart & Guest cart keyed by a signed httpOnly cookie (only its SHA-256 hash stored) and account cart; guest cart merged on sign-in; quantities bounded by live stock. & Implemented\\
+Pricing & Server-side subtotal, 5\% tax, delivery fee and free-delivery threshold, all computed in integer paise and snapshotted on the order. & Implemented\\
+Checkout and orders & Authenticated checkout with a validated shipping address; atomic per-line stock reservation with rollback; seven-state order lifecycle; cancellation and expiry release stock exactly once. & Implemented\\
+Payments & Sandbox card (Luhn and expiry checks), UPI, net banking (demo banks) and cash on delivery; declines are retryable; only brand/bank and last four digits are retained. & Implemented\\
+MediPoints & Append-only ledger; 1 point per \rupee100 of medicine subtotal, credited once per order after a confirmed payment; balance and history exposed to the customer. & Implemented\\
+Accounts and sessions & Customer self-registration; JWT access tokens (15 min) plus rotating refresh sessions (30 days) with reuse detection; password change revokes all sessions. & Implemented\\
+Authorisation & Customer/staff/admin roles mapped to permissions; every protected route checks a permission, not a UI flag. & Implemented\\
+Back office & Dashboard counters, order administration and fulfilment transitions, customer statistics, invite-based provisioning, audit-log viewer. & Implemented\\
+Audit & Append-only trail for stock, order, role, invite, sign-in, password and replenishment events; no update/delete API exists. & Implemented\\
+Cart soft holds & Reserve stock for a short window when an item is added to the cart, releasing automatically on expiry. & Partial --- reservation begins at checkout\\
+Prescriptions & Upload a prescription, staff verification queue, checkout blocked until verified, encrypted storage. & Planned (Phase D)\\
+Wishlist & Independent saved list with move-to-cart. & Planned (Phase B)\\
+Refill reminders & Reminder derived from purchase history that routes to a teleconsultation request rather than automatic re-dispatch. & Planned (Phase E)\\
+QR/barcode & Simulated scan interaction (no hardware). & Planned (Phase F)\\
+\end{longtable}
+
+\subsection{User Classes and Characteristics}
+The SRS names three user classes: Customer, Inventory Manager and Auditor. The
+implementation realises the first two as the customer and staff roles and covers the
+Auditor through the administrator's read-only audit view, because the Auditor is an
+external reviewer rather than a runtime actor of the store. Table~\ref{tab:userclasses}
+records the mapping, which must stay visible in any compliance discussion.
+
+\renewcommand{\thetable}{3}
+\begin{longtable}{@{}L{3.10cm}L{3.20cm}L{9.14cm}@{}}
+\caption{User classes and their mapping to implemented roles}\label{tab:userclasses}\\
+\toprule
+\textbf{SRS user class} & \textbf{Implemented role} & \textbf{Capabilities}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{SRS user class} & \textbf{Implemented role} & \textbf{Capabilities}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Customer & \texttt{customer} & Browse catalogue; manage cart; sign in; upload prescriptions (planned); place and pay for orders; view own orders and MediPoints.\\
+Inventory Manager & \texttt{staff} & All stock operations, image upload, order fulfilment transitions, customer list, prescription verification (planned), manual replenishment.\\
+Auditor & \texttt{admin} (audit view) & Read the audit log, roles and invitations. Admin additionally manages users, invites and role changes.\\
+Anonymous visitor & no account & Browse catalogue and keep a cookie-identified cart; checkout requires sign-in.\\
+\end{longtable}
+
+\subsection{Operating Environment}
+The runtime environment fixed by SRS Clause~4.7 and confirmed on the development
+machine is Node.js 18 or later (measured: Node.js 22.22.3, npm 10.9.8), MongoDB 6 or
+later (local instance or Atlas cluster), a modern browser (Chrome, Firefox, Edge or
+Safari) and HTTPS for all client-server traffic in production. The frontend is built
+with Vite~5 and can be served from any static host; the SRS names Netlify for the
+prototype. Uploaded medicine images are served from the API host under
+\texttt{/uploads}.
+
+\subsection{Design and Implementation Constraints}
+
+\renewcommand{\thetable}{4}
+\begin{longtable}{@{}L{1.55cm}L{5.30cm}L{8.59cm}@{}}
+\caption{Constraints and how they are respected}\label{tab:constraints}\\
+\toprule
+\textbf{ID} & \textbf{Constraint (SRS)} & \textbf{Implementation response}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{ID} & \textbf{Constraint (SRS)} & \textbf{Implementation response}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+CON-1 & One academic semester, three-member team & Tracer-bullet delivery in phases; about 13.5k lines of code including 2.5k lines of tests, so each change stays reviewable.\\
+CON-2 & Sandbox payments only, no real transactions & Deterministic mock provider (\texttt{PAYMENT\_PROVIDER=mock}); the provider adapter accepts a real gateway later without route changes.\\
+CON-3 & QR/RFID simulated, no hardware & No hardware dependency exists in the code path; a software simulation is planned (Phase F).\\
+--- & Single-instance prototype deployment & Rate limiting is in-memory; the README records the need for a shared store when scaling out.\\
+--- & No replica-set guarantee (standalone MongoDB) & Consistency relies on single-document conditional updates rather than multi-document transactions.\\
+\end{longtable}
+
+\subsection{Assumptions and Dependencies}
+\begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
+  \item ASSUME-1: standing refill authorisation is not available, so reminders route to assisted teleconsultation (FR-2.5).
+  \item ASSUME-2: a stable internet connection exists during checkout.
+  \item ASSUME-3: doctors are available for teleconsultation when a refill is due.
+  \item The prototype assumes a single pharmacy with one stock pool; batch-level inventory is not modelled (see Clause~8.4).
+  \item Dependencies: Node.js and npm; MongoDB (local or Atlas); a browser. No third-party service is required, because the payment provider is built in.
+\end{itemize}
+
+% ===========================================================================
+%  3. SPECIFIC REQUIREMENTS
+% ===========================================================================
+\section{Specific Requirements}
+Requirements are taken in substance from SRS v1.0 and keep its identifiers and
+priority labels (High = required for the core demonstration, Medium = strengthens the
+build, Low = stretch). Each row carries the verified implementation status as of this
+revision, so the clause doubles as a compliance statement. Appendix~A expands the same
+information into a full traceability matrix.
+
+\subsection{External Interface Requirements}
+
+\renewcommand{\thetable}{5}
+\begin{longtable}{@{}L{2.60cm}L{6.40cm}L{6.44cm}@{}}
+\caption{External interfaces}\label{tab:externalinterfaces}\\
+\toprule
+\textbf{Interface} & \textbf{Specification (SRS)} & \textbf{Implementation}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Interface} & \textbf{Specification (SRS)} & \textbf{Implementation}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+User interface & React customer interface; Inventory Manager console; cart and wishlist; prescription upload and status; checkout and payment status; purchase history and MediPoints. & React 18 + React Router 6 SPA with 16 page views (9 storefront, 7 back office) and 9 shared components; prescription upload and wishlist pending.\\
+Hardware interface & QR/barcode simulated; no RFID or scanner hardware required. & No hardware dependency; simulation planned (Phase F).\\
+Software interface & MongoDB 6+ for persistence; sandbox payment provider such as Razorpay or Stripe. & Mongoose 7 over MongoDB; a provider adapter (\texttt{lib/paymentGateway.js}) with a built-in mock provider implementing the same contract a real gateway would.\\
+Communication interface & HTTPS for all client-server communication; JWT bearer tokens for authenticated requests. & Helmet security headers, HTTPS redirect and trust proxy in production; \texttt{Authorization: Bearer <token>}; Secure, httpOnly, SameSite=Lax cookies.\\
+Data interface & Users, medicines/inventory, cart/wishlist, prescriptions, orders, payments, audit logs, MediPoints ledger. & Eight collections implemented; prescriptions and a separate wishlist collection pending (wishlist is Phase B, prescriptions Phase D).\\
+\end{longtable}
+
+\subsection{Functional Requirements}
+
+{\footnotesize
+\renewcommand{\thetable}{6}
+\begin{longtable}{@{}L{1.55cm}L{1.55cm}L{5.50cm}L{2.04cm}L{4.24cm}@{}}
+\caption{Functional requirements, priority and verified status}\label{tab:fr}\\
+\toprule
+\textbf{ID} & \textbf{Prio.} & \textbf{Requirement (SRS)} & \textbf{Status} & \textbf{Implementation / test evidence}\\
+\midrule
+\endfirsthead
+\multicolumn{5}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{ID} & \textbf{Prio.} & \textbf{Requirement (SRS)} & \textbf{Status} & \textbf{Implementation / test evidence}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+FR-1.1 & High & Replenish inventory when stock reaches the watermark of 10 units, restoring it to 100 units. & Implemented & \texttt{lib/inventory.js}; startup and 60~s sweeps in \texttt{server.js}; \texttt{POST /api/admin/inventory/replenish}; \texttt{tests/inventory.test.js}.\\
+FR-1.2 & High & Create a short-lived soft hold when an item is added to the cart; stock check and reservation performed atomically. & Partial & Atomic check-and-reserve exists but starts at checkout, not at add-to-cart: \texttt{lib/orderService.js} (conditional \texttt{findOneAndUpdate}); \texttt{tests/cart-orders.test.js}. Cart-level holds are Phase~C.\\
+FR-1.3 & High & Automatically release an expired soft hold and make the inventory available again. & Partial & Expired order reservations are released (\texttt{expireStaleOrders}) exactly once via an atomic status transition. No cart-hold sweeper yet.\\
+FR-1.4 & High & Identify prescription-only medicines in the cart and prevent billing until the prescription is verified. & Planned & Data foundation only: \texttt{Medicine.prescriptionRequired} with a staff-editable flag and an Rx badge in the console. Checkout gate is Phase~D.\\
+FR-1.5 & Medium & Maintain a wishlist independently of the cart; allow moving items from wishlist to cart. & Planned & Phase~B: Wishlist collection, \texttt{/api/wishlist} routes, storefront page and navigation badge.\\
+FR-1.6 & High & Allow new customers to create an account using name, e-mail address and password. & Implemented & \texttt{routes/auth.js} --- public registration is customer-only, privileged roles require an invite; \texttt{tests/api.test.js}.\\
+FR-1.7 & High & Allow registered customers to log in with their registered e-mail and password. & Implemented & \texttt{routes/auth.js}, \texttt{lib/sessions.js}; \texttt{tests/api.test.js}, \texttt{tests/sessions.test.js}.\\
+FR-2.1 & High & Block checkout for prescription-only medicines until the uploaded prescription has been verified. & Planned & Phase~D: verification queue, checkout gate and \texttt{order.prescription} reference.\\
+FR-2.2 & High & If payment fails or is interrupted, leave inventory and order state unchanged; no partial decrement. & Implemented & Stock is reserved once at order creation; a declined payment only updates payment fields. A failed multi-line reservation rolls back every earlier line. \texttt{tests/cart-orders.test.js}.\\
+FR-2.3 & High & Support UPI, debit card, credit card and net banking through the sandbox gateway. & Implemented & \texttt{lib/providers/mockPayment.js}: card (debit/credit, Luhn + expiry + CVV), UPI, net banking (five demo banks plus a declining bank), cash on delivery. \texttt{tests/cart-orders.test.js}.\\
+FR-2.4 & Medium & Credit MediPoints only after successful confirmation of payment. & Implemented & \texttt{lib/medipoints.js}, \texttt{models/MediPointsEntry.js}, \texttt{GET /api/me/medipoints}; one ledger entry per order enforced by a unique index; \texttt{tests/medipoints.test.js}.\\
+FR-2.5 & Medium & Route refill reminders to assisted teleconsultation booking rather than automatic re-dispatch. & Planned & Data foundation only: \texttt{Medicine.refillDays} (1--365, default 30). Reminder and teleconsultation request are Phase~E.\\
+FR-2.6 & High & Maintain an immutable purchase history supporting reminders and repeat purchase. & Implemented & Orders are snapshots (name, image, unit price, line total, totals, address) and no route updates or deletes them: \texttt{models/Order.js}. A schema-level immutability guard is scheduled for Phase~F.\\
+\end{longtable}
+}
+
+\subsection{Non-Functional Requirements}
+
+{\footnotesize
+\renewcommand{\thetable}{7}
+\begin{longtable}{@{}L{1.55cm}L{1.55cm}L{5.30cm}L{2.04cm}L{4.44cm}@{}}
+\caption{Non-functional requirements and verified status}\label{tab:nfr}\\
+\toprule
+\textbf{ID} & \textbf{Prio.} & \textbf{Requirement (SRS)} & \textbf{Status} & \textbf{Implementation / evidence}\\
+\midrule
+\endfirsthead
+\multicolumn{5}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{ID} & \textbf{Prio.} & \textbf{Requirement (SRS)} & \textbf{Status} & \textbf{Implementation / evidence}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+NFR-1.1 & High & The server shall enforce role-based access control for every protected request. & Implemented & Route-level \texttt{requireAuth} / \texttt{requireRole} / \texttt{requirePermission}; roles map to permissions in \texttt{lib/permissions.js}; the SPA receives the same list so it never hard-codes role logic. 401/403 paths are asserted in \texttt{tests/api.test.js}, \texttt{tests/admin.test.js} and \texttt{tests/inventory.test.js}.\\
+NFR-1.2 & High & Use bcrypt for password hashing and JWT-based authentication with session expiry. & Implemented & bcryptjs with ten rounds and \texttt{select:false} on the hash; 15-minute access tokens; 30-day rotating refresh sessions stored only as SHA-256 hashes; \texttt{tokenVersion} invalidates outstanding tokens on password change or ``sign out everywhere''; \texttt{tests/sessions.test.js}.\\
+NFR-1.3 & High & The audit log shall be append-only; no update or delete operations for audit records. & Implemented & \texttt{lib/audit.js} exposes \texttt{recordAudit} and a paginated read; no route updates or deletes \texttt{auditlogs}. A database-level write guard is scheduled for Phase~F.\\
+NFR-1.4 & High & Payment tokens and prescription data shall be encrypted or tokenised at rest. & Partial & No card number or CVV is persisted: only brand, last four digits and a generated transaction id. Prescription encryption is Phase~D (AES-256-GCM with a key from the environment, stored outside the static upload directory).\\
+NFR-2.1 & High & Inventory reservation shall be atomic to prevent lost updates and overselling. & Implemented & Per-line conditional update \texttt{\{stock: \{\$gte: qty\}\}} $\rightarrow$ \texttt{\$inc \{stock: -qty\}} with rollback of earlier lines; atomic status transitions make every stock restore single-shot. \texttt{tests/cart-orders.test.js} covers over-selling, rollback, cancel and expiry.\\
+NFR-2.2 & Medium & The checkout interface shall display the remaining stock-hold time and prescription verification status. & Partial & The payment page shows the minutes left on the reservation (\texttt{minutesLeft(order.expiresAt)}). A cart-level countdown and Rx verification status arrive with Phases~C and~D.\\
+NFR-2.3 & Low & Designed with a 24$\times$7 operational goal; production uptime guarantees out of scope. & Goal & Stateless API, idempotent payment and replenishment operations and graceful shutdown support the goal; no monitoring, backup or SLA evidence exists for an academic prototype.\\
+\end{longtable}
+}
+
+\subsection{Requirements Interpretation and Traceability}
+\textbf{Summary.} Of the thirteen functional requirements, seven are implemented and
+verified by tests, two are partially implemented and four are planned. Of the seven
+non-functional requirements, four are implemented, two are partial and one is a
+stated goal. No requirement has been dropped or silently re-scoped.
+
+{\footnotesize
+\renewcommand{\thetable}{8}
+\begin{longtable}{@{}L{2.40cm}L{5.20cm}L{7.84cm}@{}}
+\caption{Areas where the SRS needs an explicit reading}\label{tab:interpretation}\\
+\toprule
+\textbf{Requirement} & \textbf{Ambiguity or mismatch} & \textbf{Reading adopted in this build}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Requirement} & \textbf{Ambiguity or mismatch} & \textbf{Reading adopted in this build}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+FR-1.1 & The SRS does not say when replenishment runs, only that it must happen at the watermark. & Implemented as a supplier-delivery simulation: a sweep (startup plus interval) and an explicit Inventory Manager action. It is deliberately not inline in checkout, so a sale never changes stock it did not reserve. Watermark and target are configuration, not constants.\\
+FR-1.2 / FR-1.3 & The SRS says ``short-lived soft hold'' without a duration, and the earlier report draft assumed a ten-minute figure that the SRS v1.0 does not state. & The current mechanism is an order-level reservation of \texttt{ORDER\_RESERVATION\_MINUTES} (default 30). Phase~C adds a cart-level hold (\texttt{CART\_HOLD\_MINUTES}, default 15) on a \texttt{Medicine.held} counter with a sweeper, which is the literal reading of FR-1.2/1.3.\\
+FR-2.3 & ``Debit card'' and ``credit card'' are listed separately. & One card method serves both; the provider validates the number, expiry and CVV identically and stores only the brand and last four digits.\\
+FR-2.6 & ``Immutable'' is not defined at storage level. & Immutability is achieved by snapshotting commercial data into the order and by exposing no mutating route. A write-guard in the model is planned as defence in depth.\\
+User classes & The SRS names an Auditor; the code base has customer/staff/admin. & The Auditor is served by the administrator's read-only audit view. A dedicated auditor role with \texttt{audit:read} only is a low-cost future addition.\\
+NFR-2.3 & A 24$\times$7 goal cannot be demonstrated by a single-host prototype. & Recorded as a design goal with the operational work listed in Clause~9.2; no uptime claim is made.\\
+\end{longtable}
+}
+
+% ===========================================================================
+%  4. SYSTEM DESIGN DESCRIPTION
+% ===========================================================================
+\section{System Design Description}
+This clause follows the design-view structure of IEEE Std 1016-2009. Each view
+addresses one or more stakeholder concerns; together the views constitute the design
+description. Implementation detail is kept for Clause~5 so that the design remains
+readable on its own.
+
+\subsection{Design Stakeholders and Concerns}
+
+\renewcommand{\thetable}{9}
+\begin{longtable}{@{}L{3.50cm}L{5.74cm}L{6.20cm}@{}}
+\caption{Stakeholders, concerns and the views that address them}\label{tab:stakeholders}\\
+\toprule
+\textbf{Stakeholder} & \textbf{Concern} & \textbf{Addressed in}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Stakeholder} & \textbf{Concern} & \textbf{Addressed in}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Course evaluator / guide & Requirements coverage and evidence of engineering discipline & Clauses 3, 7, 8; Appendices A, D\\
+Customer & Accurate availability, predictable pricing, safe checkout, visible order state & 4.2.3, 4.2.7, 4.2.8, 6.3\\
+Inventory Manager (staff) & Correct stock, low-stock visibility, order fulfilment, traceable actions & 4.2.2, 4.2.9, 4.2.8\\
+Administrator & Privilege separation, provisioning of privileged accounts, auditability & 4.2.4, 4.2.6, 5.5\\
+Successor development team & Modularity, test coverage, documented conventions & 4.2.2, 5, 7, Appendix E\\
+Auditor (predecessor group) & Evidence that privileged actions leave a non-repudiable record & 4.2.6, 5.5, 6.1\\
+\end{longtable}
+
+\subsection{Design Views}
+
+\subsubsection{Context view}
+MediTrack has four external actors and two external systems. The actors are the
+anonymous visitor, the customer, the Inventory Manager and the administrator. The
+external systems are the MongoDB deployment and the payment gateway, which is
+reachable only through the provider adapter.
+
+\begin{figure}[H]
+\centering
+\begin{asciiart}
+   Anonymous visitor -+
+   Customer ----------+        +-------------------------------+        +------------------+
+   Inventory Manager -+------> |  MediTrack                    | -----> | Payment gateway  |
+   Administrator -----+  HTTPS |  React SPA + Express REST API |        | (sandbox: mock)  |
+          |                    +---------------+---------------+        +------------------+
+          | browser cookies                    | Mongoose ODM
+          +------------------------------------+------> MongoDB (meditrack database)
+\end{asciiart}
+\caption{Context view}\label{fig:context}
+\end{figure}
+
+Figure~\ref{fig:infoflow} complements the context view with the information flow of the
+portal. The dashed line is the system boundary; thirteen processes inside it exchange
+data with the central MediTrack database, and each labelled box is information
+entering or leaving a process. The payment gateway is the only third-party system and
+is drawn with a double boundary. The processes for the wishlist, prescription
+verification, cart soft holds and refill reminders show the target design of SRS v1.0;
+their current status is given in Table~\ref{tab:functions} and Clause~8.2.
+
+\begin{figure}[H]
+\centering
+\reportfigure[width=0.72\linewidth,height=0.78\textheight,keepaspectratio]{fig2-information-flow.png}{Information flow diagram of the MediTrack portal}\label{fig:infoflow}
+\end{figure}
+
+\subsubsection{Composition view}
+The API is decomposed into routers, shared libraries, models and middleware. The rule
+applied throughout is that a route validates input and authorises the caller, a library
+implements business rules, and a model declares data shape and indexes. Nothing in a
+route computes money or stock directly.
+
+{\footnotesize
+\renewcommand{\thetable}{10}
+\begin{longtable}{@{}L{3.10cm}L{7.94cm}L{4.40cm}@{}}
+\caption{Composition view: components and responsibilities}\label{tab:composition}\\
+\toprule
+\textbf{Component} & \textbf{Responsibility} & \textbf{Key files}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Component} & \textbf{Responsibility} & \textbf{Key files}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+API entry point & Security headers, CORS, cookies, route mounting, central error normalisation, startup and shutdown, background sweep & \texttt{server.js}\\
+Routers (7) & Authentication, back-office auth, back-office management, medicines, cart, orders, customer account & \texttt{routes/}\\
+Catalogue domain & Medicine schema, availability rules, replenishment watermark logic & \texttt{models/Medicine.js}, \texttt{lib/availability.js}, \texttt{lib/inventory.js}\\
+Cart domain & Server-side cart documents, signed cookie identity, guest merge, live serialisation & \texttt{models/Cart.js}, \texttt{lib/cartSession.js}\\
+Order domain & Cart validation, atomic reservation and rollback, expiry, order snapshots, totals & \texttt{models/Order.js}, \texttt{lib/orderService.js}, \texttt{lib/pricing.js}\\
+Payment domain & Provider registry and charge contract; deterministic sandbox rules & \texttt{lib/paymentGateway.js}, \texttt{lib/providers/mockPayment.js}\\
+Loyalty domain & Earning rule, idempotent credit, balance aggregation & \texttt{models/MediPointsEntry.js}, \texttt{lib/medipoints.js}\\
+Identity domain & Accounts, bcrypt hashing, access tokens, refresh sessions, invitations & \texttt{models/User.js}, \texttt{models/Session.js}, \texttt{models/AdminInvite.js}, \texttt{lib/sessions.js}, \texttt{lib/invites.js}, \texttt{middleware/auth.js}\\
+Governance & Audit recording and reading, role-to-permission map, rate limits, request guards & \texttt{lib/audit.js}, \texttt{lib/permissions.js}, \texttt{middleware/rateLimit.js}, \texttt{middleware/requestGuards.js}\\
+Storefront SPA & Routing, auth and cart contexts, pages and shared components, fetch wrapper with silent token refresh & \texttt{frontend/src/}\\
+\end{longtable}
+}
+
+\subsubsection{Logical view}
+Figure~\ref{fig:layers} shows the layering. The frontend holds no business truth: it
+renders what the API returns and re-fetches after every mutation. The API layer is the
+only place where prices, availability and permissions are decided. Persistence is
+reached exclusively through Mongoose models, which also carry the indexes the
+concurrency rules depend on.
+
+\begin{figure}[H]
+\centering
+\begin{asciiart}
++------------------------------------------------------------------------------+
+| Presentation   React 18 SPA (Vite)                                          |
+|                AuthContext | CartContext | pages | components               |
+|                apiFetch(): in-memory JWT, credentials:'include', refetch     |
++------------------------------------------------------------------------------+
+| Interface      Express routers: /api/auth | /api/admin/auth | /api/admin     |
+|                /api/medicines | /api/cart | /api/orders | /api/me            |
+|                middleware: requireAuth | requirePermission | rateLimit      |
+|                            rejectFormBody | Helmet | CORS                   |
++------------------------------------------------------------------------------+
+| Domain         pricing | availability | orderService | inventory            |
+|                medipoints | cartSession | sessions | invites | audit        |
+|                paymentGateway -> providers/mockPayment                       |
++------------------------------------------------------------------------------+
+| Persistence    Mongoose models: User | Medicine | Cart | Order | Session    |
+|                AdminInvite | MediPointsEntry | AuditLog                     |
+|                MongoDB indexes: unique, partial, TTL                        |
+\end{asciiart}
+\caption{Logical layered view}\label{fig:layers}
+\end{figure}
+
+\renewcommand{\thetable}{11}
+\begin{longtable}{@{}L{2.50cm}L{5.60cm}L{7.34cm}@{}}
+\caption{Layer responsibilities and prohibitions}\label{tab:layers}\\
+\toprule
+\textbf{Layer} & \textbf{May do} & \textbf{Must not do}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Layer} & \textbf{May do} & \textbf{Must not do}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Presentation & Render, validate for usability, hold the access token in memory, call the API & Decide prices, stock, permissions or order state; persist tokens in \texttt{localStorage}\\
+Interface & Parse and validate input, authorise, translate errors to status codes & Contain business rules that are also needed by another route\\
+Domain & Own invariants, atomicity, money arithmetic, provider selection & Depend on Express request/response objects (only an optional audit context is passed)\\
+Persistence & Declare schema, validation, indexes, serialisation to id & Hold secrets in plaintext (password and token hashes only, \texttt{select:false})\\
+\end{longtable}
+
+\subsubsection{Dependency view}
+Dependencies point downwards only. Routers may use domain libraries and models; domain
+libraries may use models and other domain libraries; models depend on nothing but
+Mongoose, plus the permission map used to serialise a user. The payment adapter is the
+single seam to an external provider, and it is inverted: the route knows only
+\texttt{charge()}.
+
+{\footnotesize
+\renewcommand{\thetable}{12}
+\begin{longtable}{@{}L{3.50cm}L{6.14cm}L{5.80cm}@{}}
+\caption{Dependency view (selected edges)}\label{tab:dependencies}\\
+\toprule
+\textbf{From} & \textbf{To} & \textbf{Purpose}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{From} & \textbf{To} & \textbf{Purpose}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{routes/orders.js} & \texttt{lib/orderService.js}, \texttt{lib/paymentGateway.js}, \texttt{lib/medipoints.js} & Create orders, charge, credit points\\
+\texttt{lib/orderService.js} & \texttt{models/Order.js}, \texttt{models/Medicine.js}, \texttt{lib/pricing.js}, \texttt{lib/paymentGateway.js} & Snapshot, reserve, price, record provider\\
+\texttt{lib/inventory.js} & \texttt{models/Medicine.js}, \texttt{lib/audit.js}, \texttt{lib/availability.js} & Watermark sweep and audit\\
+\texttt{lib/medipoints.js} & \texttt{models/MediPointsEntry.js}, \texttt{lib/pricing.js} & Earning rule and idempotent credit\\
+\texttt{middleware/auth.js} & \texttt{models/User.js}, \texttt{lib/permissions.js} & Token verification and permission checks\\
+\texttt{server.js} & all routers, \texttt{lib/cartSession.js}, \texttt{lib/migrations.js}, \texttt{lib/inventory.js} & Composition root\\
+\texttt{frontend/src/lib/api.js} & REST API & Single fetch wrapper, token refresh, grouped API objects\\
+\end{longtable}
+}
+
+\subsubsection{Information view}
+The persistent information view is specified in Clause~6.1 (collections, fields and
+indexes) and Clause~6.2 (relationships). The design rule is that each collection owns
+exactly one entity, references are stored as ObjectIds with declared indexes, and
+commercial values that must not change (unit price, totals, address) are copied into
+the order at checkout rather than read through the reference.
+
+Figure~\ref{fig:classmodel} presents the domain class model of the SRS with the
+principal attributes and operations of each class. User is specialised into Customer,
+Inventory Manager and Auditor; a Customer owns carts, a wishlist, orders, a MediPoints
+ledger and prescriptions, and an Order can have several payment attempts. The model is
+the design target. In the current build the Auditor is served by the administrator's
+audit view (Table~\ref{tab:userclasses}), Payment is embedded in the order, and the
+Wishlist, Prescription, RefillReminder and ConsultationBooking classes are planned
+(Table~\ref{tab:functions}, Clause~8.2).
+
+\begin{figure}[H]
+\centering
+\reportfigure[width=0.72\linewidth,height=0.78\textheight,keepaspectratio]{fig4-domain-class-model.png}{Domain class model (UML) of MediTrack}\label{fig:classmodel}
+\end{figure}
+
+\subsubsection{Interface view}
+
+{\footnotesize
+\renewcommand{\thetable}{13}
+\begin{longtable}{@{}L{4.40cm}L{3.20cm}L{7.84cm}@{}}
+\caption{Interface view: access rules per interface}\label{tab:interfaces}\\
+\toprule
+\textbf{Interface} & \textbf{Authentication} & \textbf{Authorisation rule}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Interface} & \textbf{Authentication} & \textbf{Authorisation rule}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{POST /api/auth/register}, \texttt{/api/auth/login} & None & Public; role forced to \texttt{customer}; rate limited; JSON only\\
+\texttt{GET /api/medicines}, \texttt{/api/medicines/:id} & None & Public read; response exposes only catalogue fields\\
+\texttt{POST|PATCH|DELETE /api/medicines}\ldots & Bearer JWT & \texttt{catalog:write} (staff, admin)\\
+\texttt{/api/cart}\ldots & Optional bearer JWT & Guest cart via signed cookie; account cart when signed in; merge requires a token\\
+\texttt{/api/orders}\ldots & Bearer JWT & Owner only; foreign order ids return 404 rather than 403 to avoid leaking existence\\
+\texttt{/api/me/medipoints} & Bearer JWT & Self only\\
+\texttt{/api/admin}\ldots & Bearer JWT & \texttt{orders:read:all} for operational views; \texttt{users:manage}, \texttt{invites:manage}, \texttt{audit:read} for administration\\
+\texttt{/api/admin/auth/*} & None & Public back-office login (customers rejected with 403) and invite acceptance with a single-use token\\
+\texttt{/uploads/*} & None & Static medicine images only; filenames are generated, never taken from the client\\
+\end{longtable}
+}
+
+\subsubsection{Interaction view}
+
+\begin{figure}[H]
+\centering
+\begin{asciiart}
+Customer        SPA                  /api/cart        /api/orders          MongoDB             Gateway
+   |             |                     |                 |                   |                  |
+   | add item --> | POST /cart/items --> | validate sellability, upsert cart |                  |
+   |             |                     | ----------------> carts           |                  |
+   | checkout -> | POST /orders ----------------------> | read cart         |                  |
+   |             |                     |                 | validate expiry/stock --> medicines |
+   |             |                     |                 | per line: conditional $inc -->      |
+   |             |                     |                 | (rollback all on failure)           |
+   |             |                     |                 | insert order snapshot --> orders    |
+   |             |                     |                 | clear cart -----------> carts       |
+   | pay ------> | POST /orders/:id/pay ---------------> | idempotency + expiry check          |
+   |             |                     |                 | charge() ------------------------>  |
+   |             |                     |                 | update payment/status --> orders    |
+   |             |                     |                 | credit points once ----> medipoints |
+   | <-- 200 / 402 { error, order } ----+-----------------+
+\end{asciiart}
+\caption{Checkout and payment interaction}\label{fig:interaction}
+\end{figure}
+
+{\footnotesize
+\renewcommand{\thetable}{14}
+\begin{longtable}{@{}L{3.00cm}L{4.60cm}L{7.84cm}@{}}
+\caption{Interaction view: principal use cases}\label{tab:usecases}\\
+\toprule
+\textbf{Use case} & \textbf{Entry point} & \textbf{Behaviour and failure handling}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Use case} & \textbf{Entry point} & \textbf{Behaviour and failure handling}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Browse catalogue & \texttt{GET /api/medicines} & Newest first; expired and zero-stock rows are returned but flagged unavailable by the cart layer.\\
+Manage cart & \texttt{/api/cart}\ldots & Guest or account cart; quantity bounded by live stock and a per-line maximum; 409 on expiry or insufficient stock; 415 for form-encoded bodies.\\
+Place order & \texttt{POST /api/orders} & Validates the whole cart before touching stock; reserves line by line; rolls back on the first failure; snapshots prices; clears the cart; sets an expiry deadline.\\
+Pay order & \texttt{POST /api/orders/:id/pay} & Rejects unsupported methods (400), expired orders (409) and non-payable states (409); returns 402 with the order on decline; 200 without re-charging when already paid.\\
+Cancel / expire & \texttt{POST /api/orders/:id/cancel} & Atomic status transition claims the order, then restores stock; a second call is a no-op returning the cancelled order.\\
+Fulfil order & \texttt{PATCH /api/admin/orders/:id/status} & Only forward transitions from a fixed map (paid$\rightarrow$processing$\rightarrow$shipped$\rightarrow$delivered; pending\_payment$\rightarrow$cancelled); each change is audited.\\
+Restock & \texttt{POST /api/admin/inventory/replenish} & Refills every unexpired medicine at or below the watermark, reports each change and audits it.\\
+Provision staff & \texttt{POST /api/admin/invites} & Single-use token returned once, only its SHA-256 hash stored, expires after 72 hours by default; acceptance creates the account with the invited role.\\
+\end{longtable}
+}
+
+\subsubsection{State dynamics view}
+
+\begin{figure}[H]
+\centering
+\begin{asciiart}
+                    create (stock reserved)
+        +---------+ -------------------------> +------------------+
+        |  cart   |                              | pending_payment  |
+        +---------+ <-- cart cleared -----------+---+------+-------+
+                                                     |      |
+                              card/UPI/net banking --+      +-- cash on delivery
+                                        |                          |
+                                        v                          v
+                                   +--------+                +------------+
+                                   |  paid  |                | processing |
+                                   +---+----+                +-----+------+
+                        staff: >processing |                       | shipped
+                                           v                       v
+                                     +----------+  shipped    +-----------+  delivered
+                                     |processing| ----------> |  shipped  | ---------> delivered
+                                     +----------+             +-----------+
+   Stock:  reserved at create -> held while pending -> released only on cancelled/expired
+   Points: credited once, when payment.status becomes 'succeeded'
+\end{asciiart}
+\caption{Order and stock state machine}\label{fig:state}
+\end{figure}
+
+{\footnotesize
+\renewcommand{\thetable}{15}
+\begin{longtable}{@{}L{2.90cm}L{4.16cm}L{4.50cm}L{3.60cm}@{}}
+\caption{Order states, allowed transitions and effects}\label{tab:states}\\
+\toprule
+\textbf{State} & \textbf{Meaning} & \textbf{Allowed next states} & \textbf{Stock / points effect}\\
+\midrule
+\endfirsthead
+\multicolumn{4}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{State} & \textbf{Meaning} & \textbf{Allowed next states} & \textbf{Stock / points effect}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{pending\_payment} & Created, stock reserved, awaiting payment & \texttt{paid}, \texttt{processing} (COD), \texttt{cancelled}, \texttt{expired} & Stock held until the deadline; no points\\
+\texttt{paid} & Card / UPI / net banking captured & \texttt{processing} & Stock stays decremented; points credited once\\
+\texttt{processing} & Confirmed, cash to be collected on delivery & \texttt{shipped} & Payment still pending; no points until collected\\
+\texttt{shipped} & Dispatched & \texttt{delivered} & No stock change\\
+\texttt{delivered} & Fulfilled & --- & No stock change\\
+\texttt{cancelled} & Cancelled before payment & --- & Stock restored exactly once\\
+\texttt{expired} & Reservation lapsed & --- & Stock restored exactly once\\
+\end{longtable}
+}
+
+\subsubsection{Algorithm view}
+Three algorithms carry the correctness of the system. They are written as
+single-document conditional updates, because the prototype must also run on a
+standalone MongoDB instance without multi-document transactions.
+
+\noindent\textbf{A --- atomic reservation with rollback (FR-1.2, NFR-2.1).} The
+condition and the decrement travel in one database operation, so two concurrent
+checkouts can never both pass a stock check.
+\begin{codeblock}
+for each cart line:
+    updated = medicine.findOneAndUpdate(
+        { _id: id, stock: { $gte: quantity } },      // condition re-evaluated atomically
+        { $inc: { stock: -quantity } },
+        { new: true })
+    if not updated:                                   // someone sold the last unit first
+        restore every previously reserved line        // rollback
+        throw 409 "...no longer has N unit(s) in stock"
+
+totals  = computeTotals(lines)                        // integer paise, server-side only
+order   = insert snapshot + expiry deadline
+cart.items = []
+\end{codeblock}
+
+\noindent\textbf{B --- watermark replenishment (FR-1.1).} The sweep is idempotent:
+after a row is refilled it no longer satisfies the condition, so a second concurrent
+sweep matches nothing.
+\begin{codeblock}
+candidates = medicines.where(stock <= LOW_STOCK_WATERMARK, exp >= today)
+for each candidate:
+    updated = medicine.findOneAndUpdate(
+        { _id: candidate._id, stock: { $lte: LOW_STOCK_WATERMARK } },
+        { $set: { stock: REPLENISH_TO } },
+        { new: true })
+    if not updated: continue                          // another sweep won the race
+    audit("medicine.replenish", before={stock}, after={stock})
+\end{codeblock}
+
+\noindent\textbf{C --- MediPoints credit (FR-2.4).} Eligibility is decided from the
+payment state, and the database enforces ``once per order''.
+\begin{codeblock}
+if order.payment.status != 'succeeded': return null    // declined, cancelled or COD unpaid
+points = floor(subtotal_in_paise / 10000) * MEDIPOINTS_PER_100
+try: insert ledgerEntry { user, order, type:'earn', points }
+catch duplicate-key on order: return null              // already credited -- harmless replay
+\end{codeblock}
+
+\subsubsection{Resource view}
+\begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
+  \item \textbf{Process model.} One Node.js process serving HTTP and one unref'd interval timer for replenishment; no worker queue, no external scheduler.
+  \item \textbf{Memory.} Bounded by request size (JSON body default limits, 5~MB upload limit) and the in-memory rate-limit store, which grows with the number of distinct IP/e-mail pairs seen inside the window.
+  \item \textbf{Storage.} MongoDB holds documents and indexes; uploaded images are files under \texttt{backend/uploads} and are deleted when the medicine is removed or its image replaced.
+  \item \textbf{Timers and TTL.} Guest carts carry a TTL index (30 days); orders carry an application-level deadline because stock must be restored, not merely deleted.
+  \item \textbf{Scaling limits.} Rate limiting and scheduled sweeps assume a single instance. Multiple instances would need a shared limiter store and an elected sweeper.
+\end{itemize}
+
+\subsection{Design Rationale}
+Table~\ref{tab:decisions} records the decisions that materially shape the system, the
+alternatives that were rejected, and the consequence the successor team inherits. It is
+written as a lightweight decision record so a future reviewer can see why, not only
+what.
+
+{\footnotesize
+\renewcommand{\thetable}{16}
+\begin{longtable}{@{}L{4.50cm}L{4.30cm}L{6.64cm}@{}}
+\caption{Design decisions and rejected alternatives}\label{tab:decisions}\\
+\toprule
+\textbf{Decision} & \textbf{Alternative rejected} & \textbf{Rationale and consequence}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Decision} & \textbf{Alternative rejected} & \textbf{Rationale and consequence}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Cart lives on the server; the cookie carries only a random token whose SHA-256 hash is stored & Cart in \texttt{localStorage} or in a readable cookie & XSS cannot read the cart, the cookie cannot be forged (HMAC), and prices never come from the browser. Consequence: one database round trip per cart read, acceptable at this scale.\\
+All money arithmetic in integer paise & Floating-point rupees & Eliminates rounding drift between subtotal, tax and total. Consequence: conversions at the boundary; rates and rounding are recorded on the order so old bills stay explainable.\\
+Single-document conditional updates for stock and status & Multi-document transactions & Works on a standalone MongoDB (the common local setup) and still prevents lost updates. Consequence: multi-line reservations are compensated by application-level rollback instead of a transaction.\\
+Commercial data copied into the order (snapshot) & Reading prices through the medicine reference at display time & FR-2.6: a later price change or deletion cannot rewrite history. Consequence: the order document is larger and intentionally denormalised.\\
+Payment provider adapter with a built-in simulator & Calling one vendor SDK directly from the route & CON-2 keeps payments in sandbox; adding Razorpay or Stripe later means one new provider file and one environment variable. Consequence: the adapter contract must stay small (charge plus an optional redirect result).\\
+Permissions, not role strings, enforced in routes & Scattered \texttt{role === 'admin'} checks & One map decides what a role may do, and the same list is sent to the SPA so the UI never invents its own rules. Consequence: adding a capability means editing one file.\\
+Privileged accounts only by invitation; public registration is customer-only & An administrator sign-up code in configuration & Removes a shared secret from configuration and makes provisioning traceable. Consequence: the first administrator must be seeded by script.\\
+Short access token in memory + rotating refresh cookie & A long-lived JWT in \texttt{localStorage} & NFR-1.2: a stolen access token expires quickly, and reuse of a rotated refresh token revokes the account's sessions. Consequence: more moving parts, covered by \texttt{tests/sessions.test.js}.\\
+MediPoints as an append-only ledger with a unique index on order & A mutable points field on the user & Auditable earning history and database-enforced idempotency under retries. Consequence: the balance is an aggregation rather than a stored number.\\
+Replenishment as a scheduled sweep plus an explicit action & Refilling inside the checkout code path & Keeps a sale honest: it returns exactly the stock it reserved. Consequence: stock can sit at the watermark until the next sweep, which is the intended supplier-delivery semantics.\\
+Expired medicines excluded from replenishment & Refilling every low row & Refilling unsellable stock hides the problem from the Inventory Manager and inflates inventory value. Consequence: expired rows stay visible and flagged until removed.\\
+Audit writes never throw & Failing the business action when logging fails & A logging fault must not turn a committed sale into an error. Consequence: audit gaps are possible in principle and are reported to the console for the operator.\\
+\end{longtable}
+}
+
+% ===========================================================================
+%  5. IMPLEMENTATION
+% ===========================================================================
+\section{Implementation}
+
+\subsection{Technology Stack}
+
+{\footnotesize
+\renewcommand{\thetable}{17}
+\begin{longtable}{@{}L{3.00cm}L{5.20cm}L{7.24cm}@{}}
+\caption{Technology stack (versions from the project manifests)}\label{tab:stack}\\
+\toprule
+\textbf{Layer} & \textbf{Technology} & \textbf{Role / notes}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Layer} & \textbf{Technology} & \textbf{Role / notes}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Client & React 18.3, React Router 6.30, Vite 5.4 & Single-page application, route guards, build tooling\\
+Server & Node.js 22.22.3 (runtime), Express 4.21 & REST API, middleware chain, static uploads\\
+Database & MongoDB 6+, Mongoose 7.8 & Documents, schema validation, unique/partial/TTL indexes\\
+Authentication & jsonwebtoken 9, bcryptjs 3 & Access tokens, password hashing (10 rounds)\\
+Security middleware & Helmet 8, express-rate-limit 8, cookie-parser 1.4, cors 2.8 & Headers, brute-force limits, signed cookies, credentialed CORS\\
+Uploads & Multer 2 & Medicine images (JPEG/PNG/GIF/WEBP, 5~MB limit)\\
+Testing & \texttt{node:test}, \texttt{node:assert/strict}, mongodb-memory-server 11 & Real HTTP against a real Express app and an in-memory MongoDB\\
+Configuration & dotenv 17 & Environment-driven settings; production refuses to start without secrets\\
+\end{longtable}
+}
+
+\subsection{Repository Structure and Size}
+
+{\footnotesize
+\renewcommand{\thetable}{18}
+\begin{longtable}{@{}L{4.10cm}L{1.55cm}L{9.79cm}@{}}
+\caption{Repository structure and measured size}\label{tab:repo}\\
+\toprule
+\textbf{Path} & \textbf{Lines} & \textbf{Contents}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Path} & \textbf{Lines} & \textbf{Contents}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{backend/models/} & 685 & 8 schemas: User, Medicine, Cart, Order, Session, AdminInvite, MediPointsEntry, AuditLog\\
+\texttt{backend/routes/} & 1,539 & 7 routers, 40 route handlers\\
+\texttt{backend/lib/} & 1,590 & 14 domain libraries plus the mock payment provider\\
+\texttt{backend/middleware/} & 238 & Authentication/authorisation, rate limits, request guards\\
+\texttt{backend/tests/} & 2,551 & 8 suites and one shared helper (97 test cases)\\
+\texttt{backend/scripts/} & 302 & \texttt{db:check}, \texttt{local-mongo}, \texttt{seed-admin}, \texttt{migrate-roles}, \texttt{replenish-inventory}\\
+\texttt{frontend/src/pages/} & 2,830 & 16 page views (9 storefront, 7 back office)\\
+\texttt{frontend/src/components/} & 751 & 9 shared components (navigation, dialogs, stepper, summaries, guards)\\
+\texttt{frontend/src/context/} & 336 & AuthContext and CartContext\\
+\texttt{frontend/src/lib/} & 317 & \texttt{apiFetch} wrapper, grouped API clients, formatting helpers\\
+\texttt{frontend/src/App.css} & 1,884 & Single stylesheet, no CSS framework\\
+\end{longtable}
+}
+
+\subsection{Backend Modules}
+The API is composed in \texttt{server.js}, which applies Helmet, credentialed CORS,
+JSON parsing and a signed-cookie parser, serves \texttt{/uploads}, mounts the seven
+routers, terminates unknown \texttt{/api} paths with 404 and normalises every error
+(Mongoose validation, cast and duplicate-key errors, and Multer failures) into
+\texttt{\{error\}} with an appropriate status code. Multer's temporary files are removed
+when a request fails, so a rejected upload leaves no orphan on disk.
+
+\noindent\textbf{Catalogue and availability.} \texttt{models/Medicine.js} declares name,
+manufacturing and expiry dates (stored as \texttt{YYYY-MM-DD} strings), price, integer
+stock, an optional image reference, creator, \texttt{prescriptionRequired} and
+\texttt{refillDays}. A \texttt{pre('validate')} hook rejects an expiry earlier than the
+manufacturing date, so an invalid period cannot be stored even if the client bypasses
+the form. \texttt{lib/availability.js} treats a medicine as sellable until the end of
+its expiry day and returns a human-readable reason when it is not.
+
+\noindent\textbf{Replenishment.} \texttt{lib/inventory.js} reads its rules from the
+environment, refuses an invalid configuration (a refill target at or below the watermark
+would refill the same row forever) and exposes \texttt{replenishLowStock()} and
+\texttt{startReplenishSweeper()}. The sweep runs once at startup and then on an interval;
+the timer is unreferenced so it never keeps a process or a test run alive, and it is
+cleared when the server closes. Every refill is audited with the before and after
+quantity.
+
+\noindent\textbf{Cart.} \texttt{lib/cartSession.js} resolves the caller's cart from the
+JWT or from the signed \texttt{mt\_cart} cookie (path \texttt{/api}, httpOnly,
+SameSite=Lax, Secure in production, 30-day lifetime). Only \texttt{sha256(token)} is
+stored. \texttt{serializeCart()} re-reads every medicine, so prices, stock and
+availability are current; it marks per-line issues and computes totals. Merging a guest
+cart into an account cart clamps each line to live stock and to the per-line maximum
+instead of failing the sign-in.
+
+
+\noindent\textbf{Orders and payments.} \texttt{lib/orderService.js} validates the whole
+cart before touching stock, reserves line by line, rolls back on failure, snapshots items
+and totals, clears the cart and sets the expiry deadline. Order numbers take the form
+\texttt{MT-YYYY-XXXXXX} under a unique index with a bounded retry on collision.
+\texttt{routes/orders.js} enforces ownership, idempotent payment, expiry checks and
+cancellation. \texttt{lib/paymentGateway.js} is a small registry; the mock provider
+validates card numbers with the Luhn checksum plus expiry and CVV, accepts UPI with a
+valid VPA, accepts five demo banks for net banking and declines cash on delivery above
+\rupee5,000.
+
+\noindent\textbf{MediPoints.} \texttt{lib/medipoints.js} computes points from the
+subtotal in whole \rupee100 blocks and inserts one ledger entry per order. A unique
+partial index on order turns a duplicate credit into a caught duplicate-key error, so a
+retried payment cannot earn twice.
+
+\noindent\textbf{Identity and sessions.} \texttt{models/User.js} hashes with bcrypt (ten
+rounds) and hides the hash with \texttt{select:false}. \texttt{lib/sessions.js} issues a
+32-byte refresh token in a signed httpOnly cookie, stores only its SHA-256 hash with a
+device label and expiry, rotates on every refresh, and revokes every session when a
+rotated token is replayed outside a short grace window (which covers two tabs refreshing
+at once). \texttt{tokenVersion} is embedded in access tokens so a password change or
+``sign out everywhere'' invalidates outstanding tokens immediately.
+
+\noindent\textbf{Governance.} \texttt{lib/permissions.js} maps roles to permissions
+(\texttt{catalog:read}, \texttt{catalog:write}, \texttt{orders:read:all},
+\texttt{orders:write}, \texttt{customers:read}, \texttt{users:manage},
+\texttt{invites:manage}, \texttt{audit:read}). \texttt{lib/audit.js} writes a
+best-effort entry (actor, actor e-mail, action, target, before/after, IP, user agent) and
+never throws. \texttt{middleware/rateLimit.js} limits failed sign-ins per IP and e-mail
+and registrations per IP; \texttt{middleware/requestGuards.js} rejects form-encoded
+bodies on JSON-only endpoints, closing the cross-site form-post path.
+
+\subsection{Frontend Modules}
+The SPA is a single-page React application with two providers at the root: AuthProvider
+(signed-in user, silent refresh on mount, logout, session-expired event) and CartProvider
+(cart state, merge on sign-in, add-to-cart dialog state). Routing distinguishes the
+storefront from the \texttt{/admin} console by pathname so the two layouts never mix.
+
+{\footnotesize
+\begin{longtable}{@{}L{2.80cm}L{7.90cm}L{4.74cm}@{}}
+\toprule
+\textbf{Area} & \textbf{Modules} & \textbf{Notes}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Area} & \textbf{Modules} & \textbf{Notes}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Storefront pages & Home, Login, Cart, Checkout, Payment, OrderConfirmation, Orders, AddMedicine (legacy), AdminRegister & Checkout requires a session; the cart itself works for guests\\
+Back-office pages & AdminLogin, AdminDashboard, AdminStock, AdminOrders, AdminCustomers, AdminInvites, AdminAudit & Guarded by role; invites and audit are admin-only\\
+Shared components & Navbar, ProtectedRoute, MedicineList, MedicineForm, Modal, AddToCartDialog, QuantityStepper, OrderSummary, AdminLayout & Modal uses the native \texttt{<dialog>} element for focus trapping and ESC handling\\
+API client & \texttt{lib/api.js} & Holds the access token in a module variable, attaches it to every request, retries once after a silent refresh, and groups endpoints into \texttt{adminApi}, \texttt{cartApi}, \texttt{ordersApi}, \texttt{accountApi}\\
+Formatting & \texttt{lib/format.js} & Currency (\rupee, en-IN), dates, minutes remaining, status labels\\
+\end{longtable}
+}
+
+Two frontend behaviours are worth recording because they encode requirements. First,
+the payment page renders a countdown from \texttt{order.expiresAt} and re-fetches the
+order on a decline, so the customer sees the true state after a 402 (NFR-2.2,
+partially). Second, the stock page reads the watermark and refill target from the
+dashboard summary rather than hard-coding 10, so the badge and the rule cannot drift
+apart.
+
+\subsection{Security Implementation}
+
+{\footnotesize
+\renewcommand{\thetable}{19}
+\begin{longtable}{@{}L{3.10cm}L{7.94cm}L{4.40cm}@{}}
+\caption{Security controls mapped to requirements}\label{tab:security}\\
+\toprule
+\textbf{Control} & \textbf{Implementation} & \textbf{Requirement}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Control} & \textbf{Implementation} & \textbf{Requirement}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Password storage & bcryptjs, ten rounds, hash excluded from queries by default and from JSON serialisation & NFR-1.2\\
+Access tokens & 15-minute JWT with subject, e-mail, role, \texttt{tokenVersion} and a unique \texttt{jti}; verified on every protected request with the user re-read from the database & NFR-1.2\\
+Refresh sessions & Signed httpOnly cookie, SHA-256 hash at rest, rotation, reuse detection, per-device revocation, global revocation & NFR-1.2\\
+Authorisation & \texttt{requireAuth} $\rightarrow$ \texttt{requirePermission} / \texttt{requireRole}; roles re-read per request, so a demotion takes effect on the next call & NFR-1.1\\
+Privileged provisioning & Single-use, expiring invites; only the hash is stored; public registration cannot request a privileged role & NFR-1.1\\
+Last-admin guard & Self-demotion rejected and the final administrator cannot be demoted & NFR-1.1\\
+Brute-force protection & Failed sign-ins limited per IP and e-mail, registrations per IP, configurable window and thresholds & NFR-1.1\\
+CSRF posture & JWT in an \texttt{Authorization} header (not a cookie) for state changes; SameSite=Lax cookies; JSON-only mutations; unknown origins rejected by CORS & NFR-1.1\\
+Transport and headers & Helmet defaults (CSP disabled deliberately because the API returns JSON and images), HSTS, nosniff, no \texttt{X-Powered-By}; HTTPS redirect and trust proxy in production & SRS 4.6\\
+Payment data minimisation & Card number and CVV are validated and discarded; only brand, last four digits and a generated transaction id are stored & NFR-1.4\\
+Audit trail & Append-only writes for stock, replenishment, order status, roles, invites, sign-in and password changes; no update/delete endpoint & NFR-1.3\\
+Secrets management & All keys from environment variables; production refuses to start without \texttt{JWT\_SECRET} and \texttt{COOKIE\_SECRET}; development fallbacks are loudly warned about & SRS 4.7\\
+File upload & MIME allow-list, 5~MB limit, generated filenames, deletion on replace/remove, orphan cleanup on request failure & ---\\
+\end{longtable}
+}
+
+\subsection{Configuration and Tooling}
+Behaviour that an operator may reasonably tune is environment-driven rather than
+hard-coded. Appendix~C lists the full set; the ones that carry requirements are the
+pricing rates, the reservation window, the replenishment watermark and interval, the
+MediPoints rate and the authentication lifetimes.
+
+Five maintenance scripts sit behind npm scripts: \texttt{db:check} verifies a
+connection string and prints the target database, \texttt{db:local} starts a local
+MongoDB without an installation, \texttt{seed:admin} creates or promotes the first
+administrator, \texttt{migrate:roles} applies pending one-time data migrations, and
+\texttt{inventory:replenish} runs a single replenishment pass for a cron job or a
+demonstration. Migrations are also applied automatically at startup and are recorded
+in a \texttt{migrations} collection so they never run twice.
+
+% ===========================================================================
+%  6. DATA DESIGN AND INTERFACES
+% ===========================================================================
+\section{Data Design and Interfaces}
+
+\subsection{Data Model}
+The database is named \texttt{meditrack} by default. Eight application collections
+implement the SRS entities; the SRS ``Payments'' entity is embedded in the order because
+a payment has no independent identity or history in this prototype, and
+``Prescriptions'' is not yet implemented. A ninth collection, \texttt{migrations}, is
+internal bookkeeping for one-time data fixes.
+
+{\footnotesize
+\renewcommand{\thetable}{20}
+\begin{longtable}{@{}L{3.00cm}L{7.15cm}L{5.29cm}@{}}
+\caption{Collections, key fields and purpose}\label{tab:collections}\\
+\toprule
+\textbf{Collection} & \textbf{Key fields} & \textbf{Purpose / SRS entity}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Collection} & \textbf{Key fields} & \textbf{Purpose / SRS entity}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{users} & name, email (unique, lowercase), passwordHash (\texttt{select:false}), role (customer $|$ staff $|$ admin), tokenVersion, passwordChangedAt, timestamps & Accounts and roles --- SRS Users\\
+\texttt{medicines} & name, mfd, exp (YYYY-MM-DD), price, stock (integer), prescriptionRequired, refillDays (1--365), image, createdBy $\rightarrow$ users, timestamps & Catalogue plus inventory --- SRS Medicines/Inventory\\
+\texttt{carts} & user $\rightarrow$ users (unique partial), tokenHash (unique partial, \texttt{select:false}), items[\{ medicine $\rightarrow$ medicines, quantity \}], expiresAt (TTL) & Guest and account carts --- SRS Cart/Wishlist (wishlist pending)\\
+\texttt{orders} & orderNumber (unique), user $\rightarrow$ users, items[\{ medicine, name, image, unitPrice, quantity, lineTotal \}], shippingAddress\{\ldots\}, totals\{subtotal, tax, deliveryFee, total, itemCount, currency, taxRate, freeDeliveryOver\}, status, payment\{provider, method, status, transactionId, last4, brand, failureReason, paidAt\}, expiresAt, timestamps & Immutable purchase snapshots --- SRS Orders + Payments\\
+\texttt{sessions} & user $\rightarrow$ users, tokenHash (unique, \texttt{select:false}), userAgent, ip, lastUsedAt, expiresAt (TTL), revokedAt, revokedReason, replacedBy $\rightarrow$ sessions & Refresh sessions with rotation and reuse detection\\
+\texttt{admininvites} & email, role (admin $|$ staff), tokenHash (unique, \texttt{select:false}), createdBy $\rightarrow$ users, expiresAt, acceptedAt, acceptedBy, revokedAt & Single-use provisioning of privileged accounts\\
+\texttt{medipointsentries} & user $\rightarrow$ users, order $\rightarrow$ orders, type (earn $|$ spend $|$ adjust), points (signed integer), reason, created\_at & Append-only loyalty ledger --- SRS MediPoints Ledger\\
+\texttt{auditlogs} & actor $\rightarrow$ users, actorEmail, action, targetType, targetId, before, after, ip, userAgent, created\_at & Append-only audit trail --- SRS AuditLogs\\
+\texttt{migrations} & \_id (migration id), appliedAt, detail & Internal: guarantees a data fix runs once\\
+\end{longtable}
+}
+
+{\footnotesize
+\renewcommand{\thetable}{21}
+\begin{longtable}{@{}L{3.00cm}L{6.10cm}L{6.34cm}@{}}
+\caption{Indexes and the invariant each one enforces}\label{tab:indexes}\\
+\toprule
+\textbf{Collection} & \textbf{Index} & \textbf{Purpose}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Collection} & \textbf{Index} & \textbf{Purpose}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{users} & \texttt{\{email: 1\}} unique & One account per address\\
+\texttt{medicines} & \texttt{\{created\_at: -1\}} & Catalogue ordering (newest first)\\
+\texttt{carts} & \texttt{\{user: 1\}} unique partial; \texttt{\{tokenHash: 1\}} unique partial; \texttt{\{expiresAt: 1\}} TTL & One cart per account and per guest token; abandoned guest carts expire\\
+\texttt{orders} & \texttt{\{orderNumber: 1\}} unique; \texttt{\{user: 1, created\_at: -1\}}; \texttt{\{status: 1, expiresAt: 1\}} & Unique order number, fast history, fast expiry sweep\\
+\texttt{sessions} & \texttt{\{tokenHash: 1\}} unique; \texttt{\{user: 1, revokedAt: 1\}}; \texttt{\{expiresAt: 1\}} TTL & No duplicate tokens; device listing; automatic cleanup\\
+\texttt{admininvites} & \texttt{\{tokenHash: 1\}} unique; \texttt{\{email: 1, created\_at: -1\}}; \texttt{\{expiresAt: 1\}} & Single-use tokens; pending-invite listing\\
+\texttt{medipointsentries} & \texttt{\{order: 1\}} unique partial; \texttt{\{user: 1, created\_at: -1\}} & FR-2.4: at most one credit per order; fast balance history\\
+\texttt{auditlogs} & \texttt{\{created\_at: -1\}}; \texttt{\{action: 1, created\_at: -1\}} & Newest-first listing and filtering by action\\
+\end{longtable}
+}
+
+\subsection{Relationships}
+\begin{codeblock}
+users 1 ---- 0..1 carts           (user reference, unique when present)
+users 1 ---- 0..* orders          (order.user)
+users 1 ---- 0..* sessions        (session.user)
+users 1 ---- 0..* medipointsentries
+users 1 ---- 0..* admininvites    (createdBy)  and 0..1 accepted invite (acceptedBy)
+users 1 ---- 0..* medicines       (createdBy, for provenance)
+medicines 1 -- 0..* carts.items   and  0..* orders.items  (reference + snapshot copy)
+orders 1 ---- 0..1 medipointsentries (unique: one earn entry per order)
+\end{codeblock}
+
+All references are ObjectIds with declared indexes. Order lines intentionally carry both
+the reference and a copy of the name, image, unit price and line total: the reference
+supports analytics and repeat purchase, while the copy preserves history (FR-2.6).
+
+Figures~\ref{fig:er1} to~\ref{fig:er3} give the entity-relationship view of the SRS data
+model in three parts: shopping, cart and wishlist (Figure~\ref{fig:er1}); orders,
+prescriptions and payments (Figure~\ref{fig:er2}); and customer services and security
+(Figure~\ref{fig:er3}). Entities are rounded boxes, attributes are ellipses and
+relationships are diamonds, with cardinalities on the connectors. Like the class model,
+they show the SRS target. In the implemented collections (Table~\ref{tab:collections})
+payments, cart lines and order lines are embedded in their parent documents, and the
+wishlist, prescription and refill-reminder entities are not yet persisted.
+
+\begin{figure}[H]
+\centering
+\reportfigure[width=0.68\linewidth,height=0.75\textheight,keepaspectratio]{fig7-er-shopping.png}{ER diagram (part 1 of 3): shopping, cart and wishlist}\label{fig:er1}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\reportfigure[width=0.68\linewidth,height=0.75\textheight,keepaspectratio]{fig8-er-orders.png}{ER diagram (part 2 of 3): orders, prescriptions and payments}\label{fig:er2}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\reportfigure[width=0.68\linewidth,height=0.75\textheight,keepaspectratio]{fig9-er-services.png}{ER diagram (part 3 of 3): customer services and security}\label{fig:er3}
+\end{figure}
+
+\subsection{API Specification}
+
+{\footnotesize
+\renewcommand{\thetable}{22}
+\begin{longtable}{@{}L{2.60cm}L{8.94cm}L{3.90cm}@{}}
+\caption{API groups and representative endpoints}\label{tab:apigroups}\\
+\toprule
+\textbf{Group} & \textbf{Endpoints} & \textbf{Access}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Group} & \textbf{Endpoints} & \textbf{Access}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Auth & \texttt{POST /api/auth/register}, login, refresh, logout; \texttt{GET /api/auth/me}; \texttt{GET|DELETE /api/auth/sessions}; \texttt{DELETE /api/auth/sessions/:id}; \texttt{PATCH /api/auth/password}; \texttt{GET /api/auth/users}; \texttt{PATCH /api/auth/users/:id/role} & Public / signed in / admin\\
+Back-office auth & \texttt{POST /api/admin/auth/login}; \texttt{POST /api/admin/auth/accept-invite} & Public; customers rejected\\
+Back office & \texttt{GET /api/admin/summary}; \texttt{GET /api/admin/orders}, \texttt{/orders/:id}; \texttt{PATCH /api/admin/orders/:id/status}; \texttt{GET /api/admin/customers}; \texttt{POST /api/admin/inventory/replenish}; \texttt{GET /api/admin/audit}; \texttt{POST|GET /api/admin/invites}; \texttt{DELETE /api/admin/invites/:id} & staff / admin; audit and invites admin only\\
+Stock & \texttt{GET /api/medicines}, \texttt{/medicines/:id}; \texttt{POST /api/medicines}; \texttt{PATCH /api/medicines/:id}; \texttt{DELETE /api/medicines/:id} & Public read; writes need \texttt{catalog:write}\\
+Cart & \texttt{GET /api/cart}; \texttt{POST /api/cart/items}; \texttt{PATCH|DELETE /api/cart/items/:medicineId}; \texttt{DELETE /api/cart}; \texttt{POST /api/cart/merge} & Guest cookie or JWT\\
+Orders & \texttt{POST /api/orders}; \texttt{GET /api/orders}, \texttt{/orders/:id}; \texttt{POST /api/orders/:id/pay}; \texttt{POST /api/orders/:id/cancel} & Owner\\
+Account & \texttt{GET /api/me/medipoints} & Signed in\\
+Platform & \texttt{GET /api/health}; \texttt{GET /uploads/:file} & Public\\
+\end{longtable}
+}
+
+\subsection{Error Conventions}
+Every failure returns JSON of the form \texttt{\{ "error": "\ldots" \}}, optionally with
+additional context (a declined payment returns \texttt{\{ error, order \}}). Status
+codes are used consistently:
+\begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
+  \item 400 --- malformed or invalid input (missing field, bad quantity, invalid refill cycle, unsupported payment method).
+  \item 401 --- missing, expired or revoked credentials; the SPA responds by refreshing once and retrying.
+  \item 402 --- payment declined by the provider; the order stays payable and the reason is stored on it.
+  \item 403 --- authenticated but not permitted (customer attempting a staff action, customer on the back-office login).
+  \item 404 --- unknown resource, including another user's order, which is deliberately not distinguished from a missing one.
+  \item 409 --- state conflict (duplicate e-mail, out of stock, expired reservation, illegal status transition).
+  \item 415 --- form-encoded body sent to a JSON-only endpoint.
+  \item 429 --- rate limit exceeded, returned as JSON rather than an HTML page.
+  \item 500 / 502 --- unexpected server error or provider unavailable; the body never exposes a stack trace.
+\end{itemize}
+
+% ===========================================================================
+%  7. VERIFICATION AND VALIDATION
+% ===========================================================================
+\section{Verification and Validation}
+This clause is organised in the sequence recommended by IEEE Std 829-2008: strategy,
+environment, test inventory, representative test cases, execution results and coverage.
+Every number in Clause~7.5 was produced by running the suite on the development machine
+in this revision; nothing is projected or estimated.
+
+\subsection{Verification Strategy}
+Verification is primarily dynamic and end-to-end. Each suite starts a real MongoDB in
+memory, connects the real database helper, starts the real Express application on an
+ephemeral port and issues real HTTP requests with \texttt{fetch}. No controller, router,
+model or database call is stubbed. This was a deliberate choice: the requirements that
+matter most here (reservation atomicity, single-shot stock restoration, idempotent
+payment, session rotation) live at the boundaries between layers, and unit tests with
+mocks would not observe them.
+
+\renewcommand{\thetable}{23}
+\begin{longtable}{@{}L{2.60cm}L{6.50cm}L{6.34cm}@{}}
+\caption{Test levels applied}\label{tab:testlevels}\\
+\toprule
+\textbf{Level} & \textbf{Applied to} & \textbf{Consequence}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Level} & \textbf{Applied to} & \textbf{Consequence}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Unit & Pure helpers: pricing, availability, connection-string hints, permission map, MediPoints rule, inventory configuration & Fast feedback with no I/O; includes negative cases such as an invalid refill target\\
+Integration / API & Every route group exercised over HTTP with real Mongoose models and indexes & Catches authorisation gaps, validation drift and serialisation errors\\
+Concurrency & Parallel reservation and replenishment passes (\texttt{Promise.all}) and repeated transitions & Demonstrates that the conditional-update guards hold\\
+Build / static & Frontend production build; \texttt{node --check} on every changed server file & Catches syntax and bundling errors before review\\
+Manual exploratory & Scripted end-to-end run of the storefront flow against a live server & Confirms the timers, the UI-facing shapes and the README instructions\\
+\end{longtable}
+
+\subsection{Test Environment}
+\begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
+  \item \textbf{Runtime:} Node.js 22.22.3, npm 10.9.8, Linux (x86-64).
+  \item \textbf{Database:} mongodb-memory-server 11 --- an ephemeral real MongoDB per test file, so no installation or shared state is required.
+  \item \textbf{Runner:} \texttt{node --test} (built-in), \texttt{node:assert/strict}; suites run in isolated processes.
+  \item \textbf{Determinism:} the payment simulator latency is set to 0~ms in tests; the replenishment sweep is disabled in the inventory suite so assertions cannot race the timer; timestamps inside tests are relative to the current clock.
+  \item \textbf{Isolation:} each suite uses its own database name, its own port (0 = ephemeral) and its own cookie jar, so suites can run in any order or in parallel.
+\end{itemize}
+
+\subsection{Test Suite Inventory}
+
+{\footnotesize
+\renewcommand{\thetable}{24}
+\begin{longtable}{@{}L{3.70cm}L{1.55cm}L{10.19cm}@{}}
+\caption{Test suites and scope}\label{tab:suites}\\
+\toprule
+\textbf{File} & \textbf{Cases} & \textbf{Scope}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{File} & \textbf{Cases} & \textbf{Scope}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{api.test.js} & 29 & Health and security headers; registration and login validation; role-based stock writes; stock CRUD and image upload; validation failures; 404s; login rate limiting; catalogue ordering\\
+\texttt{cart-orders.test.js} & 21 & Signed cart cookie; guest cart and merge; quantity, stock and expiry validation; server-side totals; checkout snapshot and reservation; rollback; card, UPI, net-banking and COD payments; declines and retries; cancellation; reservation expiry; ownership; order history\\
+\texttt{inventory.test.js} & 12 & Restock at the watermark; rows above the watermark untouched; zero-stock restock; expired stock excluded; configurable watermark/target; concurrent sweeps restock once; RBAC on the endpoint; audit entry; dashboard configuration; Rx and refill fields with validation\\
+\texttt{medipoints.test.js} & 9 & \rupee100-block earning rule and configurable rate; authentication required; zero starting balance; credit after a confirmed card payment; no double credit on replay; decline-then-retry credits once; COD earns nothing; per-customer isolation\\
+\texttt{admin.test.js} & 9 & Role split (customer/staff/admin); staff stock rights; invite creation, acceptance, expiry and revocation; order fulfilment transitions; customer statistics; audit log contents and access\\
+\texttt{sessions.test.js} & 8 & Refresh-token rotation; reuse detection revoking all sessions; logout; password change invalidating access tokens; listing and revoking another device; sign-out everywhere\\
+\texttt{mongoErrors.test.js} & 8 & Connection-string redaction, local/cloud classification, targeted hints for bad auth, DNS/SRV failures and timeouts\\
+\texttt{config.test.js} & 1 & Production refuses to start without JWT\_SECRET and COOKIE\_SECRET\\
+Total & 97 & All passing (Clause~7.5)\\
+\end{longtable}
+}
+
+\subsection{Representative Test Cases}
+
+{\footnotesize
+\renewcommand{\thetable}{25}
+\begin{longtable}{@{}L{1.55cm}L{2.30cm}L{4.23cm}L{5.00cm}L{1.80cm}@{}}
+\caption{Representative test cases with expected and observed results}\label{tab:testcases}\\
+\toprule
+\textbf{ID} & \textbf{Requirement} & \textbf{Input / action} & \textbf{Expected} & \textbf{Observed}\\
+\midrule
+\endfirsthead
+\multicolumn{5}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{ID} & \textbf{Requirement} & \textbf{Input / action} & \textbf{Expected} & \textbf{Observed}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+TC-01 & FR-1.1 & Medicine at stock 10; \texttt{POST /api/admin/inventory/replenish} as staff & 200, one row restocked 10$\rightarrow$100, stock now 100 & Pass\\
+TC-02 & FR-1.1 & Two concurrent replenishment passes on a row at stock 2 & Exactly one pass reports the row; final stock 100 (not 200) & Pass\\
+TC-03 & FR-1.1 & Expired medicine at stock 3; replenish & Row skipped; stock remains 3 & Pass\\
+TC-04 & FR-1.1, NFR-1.1 & Anonymous and customer callers on the replenish endpoint & 401 and 403 & Pass\\
+TC-05 & FR-2.3 & Pay by net banking with bank \texttt{hdfc} & 200, status paid, method netbanking, brand hdfc, no last4 & Pass\\
+TC-06 & FR-2.3 & Net banking with unknown bank, \texttt{failbank} and no bank; then retry with \texttt{sbi} & 402 three times with distinct reasons; retry succeeds & Pass\\
+TC-07 & FR-2.2 & Card 4000 0000 0000 0002 (Luhn-valid, forced decline), then UPI retry & 402 with order still \texttt{pending\_payment}; retry pays & Pass\\
+TC-08 & FR-2.4 & \rupee250 subtotal paid by card & Balance 2 points, one ledger entry linked to the order & Pass\\
+TC-09 & FR-2.4 & Replay the payment request on an already-paid order & 200 without re-charging; balance unchanged & Pass\\
+TC-10 & FR-2.4 & Cash-on-delivery order confirmed & Status processing, payment pending, no points & Pass\\
+TC-11 & NFR-2.1 & Two buyers race for the last unit & One order created, the other 409; stock never negative & Pass\\
+TC-12 & NFR-2.1 & Multi-line checkout where a later line is short & 409 and every earlier reservation rolled back & Pass\\
+TC-13 & FR-2.6, NFR-2.1 & Cancel an unpaid order, then cancel again & Stock restored once; second call a no-op & Pass\\
+TC-14 & FR-2.6 & Let a reservation lapse, then read the order & Status expired, stock restored once & Pass\\
+TC-15 & NFR-1.2 & Replay a rotated refresh token & All sessions revoked; access tokens rejected & Pass\\
+TC-16 & NFR-1.2 & Change the password, then use the previous access token & 401 immediately & Pass\\
+TC-17 & NFR-1.1 & Customer attempts \texttt{POST /api/medicines}; staff attempts it & 403 for the customer, 201 for staff & Pass\\
+TC-18 & NFR-1.3 & Restock, then read \texttt{/api/admin/audit?action=medicine.replenish} as admin & Entry present with before/after stock; staff gets 403 & Pass\\
+TC-19 & FR-1.6 & Register with \texttt{role: "admin"} & 403 --- privileged roles are never self-service & Pass\\
+TC-20 & NFR-1.1 & Exceed the failed-login limit for one e-mail & 429 with a JSON error & Pass\\
+\end{longtable}
+}
+
+\subsection{Execution Results}
+
+{\footnotesize
+\renewcommand{\thetable}{26}
+\begin{longtable}{@{}L{4.10cm}L{1.55cm}L{1.55cm}L{1.55cm}L{6.14cm}@{}}
+\caption{Executed test results (this revision)}\label{tab:results}\\
+\toprule
+\textbf{Suite} & \textbf{Cases} & \textbf{Passed} & \textbf{Failed} & \textbf{Notes}\\
+\midrule
+\endfirsthead
+\multicolumn{5}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Suite} & \textbf{Cases} & \textbf{Passed} & \textbf{Failed} & \textbf{Notes}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{tests/api.test.js} & 29 & 29 & 0 & Includes rate-limit and upload cases\\
+\texttt{tests/cart-orders.test.js} & 21 & 21 & 0 & Four payment methods, declines, expiry\\
+\texttt{tests/inventory.test.js} & 12 & 12 & 0 & Sweeper disabled in this suite for determinism\\
+\texttt{tests/medipoints.test.js} & 9 & 9 & 0 & Includes idempotency and COD cases\\
+\texttt{tests/admin.test.js} & 9 & 9 & 0 & Invites, fulfilment, audit\\
+\texttt{tests/sessions.test.js} & 8 & 8 & 0 & Rotation and reuse detection\\
+\texttt{tests/mongoErrors.test.js} & 8 & 8 & 0 & Pure unit tests, no database\\
+\texttt{tests/config.test.js} & 1 & 1 & 0 & Production secret guard\\
+Total & 97 & 97 & 0 & Full run 3.5--6.0~s wall clock (warm cache; a cold run measured 6.0~s); no skips, no todos\\
+\end{longtable}
+}
+
+The suite is reproducible with \texttt{cd backend \&\& npm test} and requires no MongoDB
+installation (Appendix~E). The per-file counts above were obtained by running each suite
+individually as well as the full set, and the two agree.
+
+\subsection{Build and Static Verification}
+
+{\footnotesize
+\renewcommand{\thetable}{27}
+\begin{longtable}{@{}L{3.30cm}L{4.70cm}L{7.44cm}@{}}
+\caption{Build verification}\label{tab:build}\\
+\toprule
+\textbf{Check} & \textbf{Command} & \textbf{Observed result}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Check} & \textbf{Command} & \textbf{Observed result}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Frontend production build & \texttt{cd frontend \&\& npm run build} & Vite 5.4.21, 64 modules transformed; CSS 22.22~kB (gzip 4.79~kB); JS 242.36~kB (gzip 71.52~kB); built in $\approx$1--2~s\\
+Server syntax & \texttt{node --check} on changed files & No syntax errors in 10 files\\
+Backend start-up & \texttt{npm run dev} against a local MongoDB & Connects, applies migrations, runs the startup sweep, logs the listening port\\
+Guidance script & \texttt{npm run db:check} & Prints the redacted target, database name, server version, collections and document counts\\
+\end{longtable}
+}
+
+\subsection{Requirement-to-Test Coverage}
+
+{\footnotesize
+\renewcommand{\thetable}{28}
+\begin{longtable}{@{}L{2.50cm}L{4.50cm}L{8.44cm}@{}}
+\caption{Requirement coverage by automated tests}\label{tab:coverage}\\
+\toprule
+\textbf{Requirement} & \textbf{Covering suite(s)} & \textbf{Coverage judgement}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Requirement} & \textbf{Covering suite(s)} & \textbf{Coverage judgement}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+FR-1.1 & inventory.test.js & Direct: watermark, target, expiry exclusion, configuration, concurrency, RBAC, audit\\
+FR-1.2, FR-1.3 & cart-orders.test.js & Order-level reservation, rollback, expiry and single-shot release covered; cart-level holds do not exist yet\\
+FR-1.4, FR-2.1 & inventory.test.js (field only) & The Rx flag round-trips through the API; the verification gate is not implemented, so it cannot be tested\\
+FR-1.5 & --- & Not covered (feature planned)\\
+FR-1.6, FR-1.7 & api.test.js, sessions.test.js & Direct: validation, role forcing, login, refresh, revocation\\
+FR-2.2 & cart-orders.test.js & Direct: decline, retry, rollback, no partial decrement\\
+FR-2.3 & cart-orders.test.js & Direct: card success/decline, UPI success/decline, net banking success/declines, COD limit\\
+FR-2.4 & medipoints.test.js & Direct: rule, gating on payment state, idempotency, isolation\\
+FR-2.5 & inventory.test.js (field only) & Refill cycle is stored; reminder workflow planned\\
+FR-2.6 & cart-orders.test.js, admin.test.js & Snapshot values asserted at checkout; status transitions restricted by a fixed map\\
+NFR-1.1 & api.test.js, admin.test.js, inventory.test.js & 401/403 across stock, back office, audit and replenishment\\
+NFR-1.2 & api.test.js, sessions.test.js, config.test.js & Hashing, token expiry, rotation, reuse detection, production secret guard\\
+NFR-1.3 & admin.test.js, inventory.test.js & Writes and reads covered; the absence of an update/delete route is verified by inspection, not by a test asserting the route does not exist\\
+NFR-1.4 & cart-orders.test.js & Brand/last4-only persistence is asserted; prescription encryption pending\\
+NFR-2.1 & cart-orders.test.js, inventory.test.js & Concurrency and rollback both exercised\\
+NFR-2.2 & --- & UI countdown verified manually only; no browser automation\\
+NFR-2.3 & --- & Goal; no uptime test possible in a single-host prototype\\
+\end{longtable}
+}
+
+\subsection{Threats to Validity}
+\begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
+  \item \textbf{Internal validity.} Tests run against mongodb-memory-server, a real but ephemeral MongoDB. Behaviour that depends on a replica set (multi-document transactions), on network latency between application and database, or on Atlas-specific settings is therefore not exercised.
+  \item \textbf{Concurrency realism.} Concurrency is simulated with \texttt{Promise.all} inside one process. This exercises the conditional updates but not true multi-process contention; a load generator would strengthen the claim.
+  \item \textbf{External validity.} No load, soak, accessibility or cross-browser testing was performed. The frontend is verified by a successful production build and a manual walkthrough, not by browser automation.
+  \item \textbf{Construct validity.} Requirement wording is interpreted, and Table~\ref{tab:interpretation} records every such interpretation so a reviewer can disagree explicitly rather than discover a silent redefinition.
+  \item \textbf{Conclusion validity.} A passing suite shows that asserted behaviour holds; it does not prove the absence of defects, and several requirements (FR-1.5, FR-2.1, FR-2.5, NFR-2.2, NFR-2.3) have no automated coverage.
+\end{itemize}
+
+% ===========================================================================
+%  8. RESULTS AND DISCUSSION
+% ===========================================================================
+\section{Results and Discussion}
+
+\subsection{Summary of Results}
+The prototype delivers a coherent end-to-end workflow --- browse, cart, checkout, pay,
+fulfil --- with the consistency and access-control properties the SRS treats as high
+priority, and it does so under the constraints of a three-person, one-semester project.
+Table~\ref{tab:indicators} collects the measured indicators. Only quantities that were
+observed are listed; no throughput or latency figure is claimed, because no load test
+was performed.
+
+{\footnotesize
+\renewcommand{\thetable}{29}
+\begin{longtable}{@{}L{4.30cm}L{4.20cm}L{6.94cm}@{}}
+\caption{Measured project indicators}\label{tab:indicators}\\
+\toprule
+\textbf{Indicator} & \textbf{Measured value} & \textbf{Basis}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Indicator} & \textbf{Measured value} & \textbf{Basis}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Automated test cases & 97 & Eight suites, \texttt{node --test}\\
+Pass rate & 97 / 97 (100~\%) & Full-suite runs in this revision\\
+Full-suite wall-clock time & 3.5--6.0~s & Four runs, warm and cold cache\\
+Backend source (non-test) & $\approx$ 4,713 lines & models + routes + lib + middleware + scripts\\
+Backend tests & 2,551 lines & $\approx$ 35~\% of backend code\\
+Frontend source & $\approx$ 6,284 lines & Pages, components, contexts, helpers, stylesheet\\
+REST route handlers & 41 & 40 router handlers plus \texttt{/api/health}\\
+Mongo collections / models & 8 (+1 internal) & Table~\ref{tab:collections}\\
+Frontend production bundle & 242.36~kB JS (71.52~kB gzip), 22.22~kB CSS & \texttt{vite build}\\
+Functional requirements & 7 verified, 2 partial, 4 planned & Table~\ref{tab:fr}, Appendix~A\\
+Non-functional requirements & 4 verified, 2 partial, 1 goal & Table~\ref{tab:nfr}\\
+\end{longtable}
+}
+
+\subsection{Requirements Alignment}
+
+{\footnotesize
+\renewcommand{\thetable}{30}
+\begin{longtable}{@{}L{4.30cm}L{1.90cm}L{9.24cm}@{}}
+\caption{Requirement-by-requirement assessment}\label{tab:assessment}\\
+\toprule
+\textbf{SRS area} & \textbf{Assessment} & \textbf{Evidence}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{SRS area} & \textbf{Assessment} & \textbf{Evidence}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Live stock catalogue ($\approx$50 items) & Implemented & Public listing with live stock, price, dates and images; seeding to approximately 50 items is a demo task (Phase~F)\\
+Replenishment at the watermark & Implemented & Sweep plus manual endpoint, configuration-driven, expired rows excluded, audited (TC-01 to TC-04)\\
+Cart soft hold and automatic release & Partial & Atomic reservation exists at order creation; cart-level holds and their sweeper are Phase~C\\
+Prescription detection and billing block & Planned & The Rx flag exists and is staff-editable; upload, verification queue and checkout gate are Phase~D\\
+Wishlist & Planned & Phase~B\\
+Customer registration and login & Implemented & Customer-only registration, JWT access tokens, rotating refresh sessions (TC-15, TC-16, TC-19)\\
+Payment methods (UPI, debit, credit, net banking) & Implemented & Four methods through the sandbox adapter (TC-05, TC-06)\\
+Payment failure leaves state unchanged & Implemented & The decline path updates payment fields only; retry succeeds (TC-07)\\
+MediPoints after confirmed payment & Implemented & Ledger with a unique index, verified for card, replay and COD (TC-08 to TC-10)\\
+Refill reminders to teleconsultation & Planned & Refill cycle stored; reminder and teleconsultation request are Phase~E\\
+Immutable purchase history & Implemented & Order snapshots, no mutating routes, restricted transitions (TC-13, TC-14)\\
+RBAC on every protected request & Implemented & Permission checks per route (TC-17, TC-20)\\
+bcrypt + JWT with expiry & Implemented & Ten-round hashing, 15-minute tokens, 30-day refresh sessions, revocation (TC-15, TC-16)\\
+Append-only audit log & Implemented & Audited writes, read-only listing, no update/delete route (TC-18)\\
+Payment data encrypted or tokenised at rest & Partial & No card data retained; prescription encryption is Phase~D\\
+Atomic reservation & Implemented & Conditional updates with rollback (TC-11, TC-12)\\
+Hold time and Rx status at checkout & Partial & Reservation countdown on the payment page; cart countdown and Rx status arrive with Phases~C and~D\\
+24$\times$7 operational goal & Goal & Stateless API and idempotent operations; no monitoring, backup or SLA evidence\\
+QR/barcode simulation & Planned & Phase~F; no hardware dependency exists\\
+\end{longtable}
+}
+
+\subsection{Discussion of Trade-offs}
+\textbf{Correctness without transactions.} The most consequential decision was to make
+every stock and status change a single-document conditional update. It keeps the
+prototype portable to a standalone MongoDB and gives one clear invariant per operation,
+but it moves atomicity for a multi-line checkout into application logic: the code must
+remember to compensate earlier lines, and that compensation is exactly what the rollback
+branch does. A replica set with a transaction would remove the compensation code at the
+cost of a heavier development environment.
+
+\textbf{Where holds belong.} Reserving at checkout (current behaviour) keeps the cart
+simple and makes the reservation window coincide with the payment window, when a
+customer is most likely to convert. The SRS asks for a hold at add-to-cart, which
+protects a customer who is still shopping but needs a second stock counter
+(\texttt{held}), a release sweeper and a conversion step at checkout. Phase~C implements
+the SRS reading and must keep both counters consistent; that is the highest-risk change
+left in the plan and deserves its own suite before any UI work.
+
+\textbf{Replenishment as a background event.} Restocking inside the checkout path would
+have simplified the demo but would make a sale mutate stock in two opposite directions
+within one request, weakening both the audit story and the reservation arithmetic. A
+separate sweep keeps a sale honest and models a supplier delivery, at the cost of stock
+remaining at the watermark until the next pass --- visible in the demo by design and
+controllable through the manual endpoint.
+
+\textbf{A ledger instead of a counter.} Storing a MediPoints balance on the user would
+have been one field and one update. The ledger costs an aggregation per read but buys an
+auditable history and a database-enforced ``once per order'' rule that survives a
+replayed request --- precisely the failure mode FR-2.4 is about.
+
+\subsection{Limitations}
+\begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
+  \item \textbf{Unfinished SRS scope.} Cart soft holds, prescription gating, wishlist, refill reminders and QR/barcode simulation are specified but not built (Tables~\ref{tab:fr} and~\ref{tab:assessment}).
+  \item \textbf{No batch-level inventory.} One stock counter and one expiry date per medicine; several batches of the same medicine with different expiry dates cannot be represented. The repository README records the embedded-batch shape to adopt if that becomes a requirement.
+  \item \textbf{Single process.} Rate limiting and the replenishment sweep assume one API instance; scaling out needs a shared limiter store and an elected sweeper.
+  \item \textbf{Local file storage.} Medicine images live on the API host's disk, so a multi-host deployment needs object storage.
+  \item \textbf{No performance evidence.} No load, soak or profiling work was done; this report claims functional correctness, not performance.
+  \item \textbf{Limited frontend verification.} Production build plus manual walkthrough; no unit tests, browser automation or accessibility audit for the React code.
+  \item \textbf{Prototype operations.} No monitoring, backup or recovery procedure, and TLS termination is delegated to the hosting platform.
+\end{itemize}
+
+\subsection{Risks and Mitigations}
+
+{\footnotesize
+\renewcommand{\thetable}{31}
+\begin{longtable}{@{}L{4.60cm}L{1.70cm}L{1.60cm}L{7.26cm}@{}}
+\caption{Risk register}\label{tab:risks}\\
+\toprule
+\textbf{Risk} & \textbf{Likelihood} & \textbf{Impact} & \textbf{Mitigation}\\
+\midrule
+\endfirsthead
+\multicolumn{4}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Risk} & \textbf{Likelihood} & \textbf{Impact} & \textbf{Mitigation}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Cart-hold work (Phase~C) breaks reservation accounting and causes overselling & Medium & High & Introduce the \texttt{held} counter behind its own test suite; assert stock + held invariants; convert holds to sales in one conditional update\\
+Requirement drift between SRS revisions & Medium & Medium & Appendix~A is the single traceability source; any change is recorded in Table~\ref{tab:interpretation} before code is written\\
+Prescription upload exposes patient data & Medium & High & Phase~D: AES-256-GCM at rest, storage outside the static directory, access limited to the owner and a verifier, access logged\\
+Privilege escalation through a missed authorisation check & Low & High & Permission middleware on every protected route; 401/403 tests per group; role re-read on each request\\
+Secret leakage from development configuration & Low & High & No secrets committed; production refuses to boot without secrets; connection strings redacted in logs\\
+Concurrency defects missed by in-process tests & Medium & Medium & Add a multi-process load test against the reservation endpoint before claiming production readiness\\
+Team availability in the final weeks & Medium & Medium & Phases are independently shippable and each ends with tests and documentation, so the project stays presentable at any point\\
+\end{longtable}
+}
+
+% ===========================================================================
+%  9. CONCLUSION AND FUTURE WORK
+% ===========================================================================
+\section{Conclusion and Future Work}
+
+\subsection{Conclusion}
+MediTrack is a working three-tier pharmacy storefront with a back-office console, built
+against a formal SRS within the constraints of a one-semester, three-person project. The
+parts of the SRS that carry the highest risk --- inventory consistency, payment failure
+handling, privilege separation, session security and auditability --- are implemented and
+are covered by 97 passing automated tests. The parts that remain are clearly identified
+rather than hidden: cart-level soft holds, prescription verification, a wishlist, refill
+reminders and QR simulation.
+
+Three outcomes are worth carrying forward. First, the prototype demonstrates that the
+important invariants of an e-commerce checkout can be defended without multi-document
+transactions, by expressing each one as a conditional single-document update with an
+explicit compensation path. Second, the project shows how a requirement can be traced to
+a file and to an executing test, which is what makes the status claims in this report
+checkable rather than rhetorical. Third, the remaining work is not a research problem
+but a sequencing problem: each outstanding requirement has a defined data model,
+endpoint and test plan, and the phases are ordered so that each one leaves the system in
+a demonstrable state.
+
+\subsection{Future Work}
+Remaining work is organised as five increments. Each increment is independently
+reviewable, adds its own tests, and updates Appendix~A so the traceability matrix never
+lags behind the code.
+
+{\footnotesize
+\renewcommand{\thetable}{32}
+\begin{longtable}{@{}L{1.55cm}L{5.01cm}L{3.40cm}L{5.20cm}@{}}
+\caption{Future work mapped to requirements}\label{tab:futurework}\\
+\toprule
+\textbf{Phase} & \textbf{Scope} & \textbf{Requirements closed} & \textbf{Design notes}\\
+\midrule
+\endfirsthead
+\multicolumn{4}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Phase} & \textbf{Scope} & \textbf{Requirements closed} & \textbf{Design notes}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+B & Wishlist: Wishlist collection, \texttt{/api/wishlist} routes, move-to-cart, storefront page, navigation badge & FR-1.5 & One wishlist per user; move-to-cart reuses \texttt{getOrCreateCart} and the existing stock checks\\
+C & Cart-level soft holds: \texttt{Medicine.held} counter, \texttt{holdExpiresAt} per cart line, release sweeper, hold-to-sale conversion, cart countdown & FR-1.2, FR-1.3, NFR-2.2 & Guard every add with \texttt{\$expr: stock $-$ held $\ge$ qty}; convert at checkout with \texttt{\$inc \{stock: $-$qty, held: $-$qty\}}; never let the two counters drift\\
+D & Prescriptions: upload (PDF/JPG/PNG), AES-256-GCM at rest, verification queue, checkout gate, Rx status at checkout and on the receipt & FR-1.4, FR-2.1, NFR-1.4, NFR-2.2 & One verified prescription per customer valid for a configurable period; files stored outside the static directory and streamed only to the owner or a verifier\\
+E & Refill reminders from purchase history and a teleconsultation request & FR-2.5 & Computed from last purchase + \texttt{refillDays}; the action books an assisted consultation instead of re-dispatching medicine (ASSUME-1)\\
+F & Hardening and demo readiness: schema-level immutability guards, simulated QR token with an admin scan endpoint, catalogue seeding to $\approx$50 medicines, README and traceability refresh & FR-2.6 (defence in depth), NFR-1.3, SRS 4.5 & No new dependency for the QR simulation; guards written as Mongoose middleware so a script cannot bypass them\\
+\end{longtable}
+}
+
+\noindent\textbf{Operational work beyond the prototype.} Before any real deployment the
+team should add monitoring and alerting, scheduled backups with a restore drill, a shared
+rate-limit store and a single elected sweeper for multi-instance hosting, object storage
+for uploads, a content-security policy for the served SPA, dependency scanning in CI, and
+a load test that exercises the reservation path from several processes. These are
+recorded here because the SRS explicitly excludes production guarantees (NFR-2.3) while
+the architecture should not make them impossible.
+
+% ===========================================================================
+%  REFERENCES
+% ===========================================================================
+\clearpage
+\section*{References}
+\addcontentsline{toc}{section}{References}
+\begin{enumerate}[label={[\arabic*]},leftmargin=2.2em,itemsep=2pt,topsep=2pt]
+  \item IEEE, \emph{IEEE Recommended Practice for Software Requirements Specifications}, IEEE Std 830-1998, Institute of Electrical and Electronics Engineers, 1998.
+  \item MediTrack Development Team, \emph{MediTrack --- Software Requirements Specification, Version 1.0}, 13~pp., prepared per IEEE Std 830 structure, 2026.
+  \item IEEE, \emph{IEEE Standard for Information Technology --- Systems Design --- Software Design Descriptions}, IEEE Std 1016-2009, Institute of Electrical and Electronics Engineers, 2009.
+  \item IEEE, \emph{IEEE Standard for Software and System Test Documentation}, IEEE Std 829-2008, Institute of Electrical and Electronics Engineers, 2008.
+  \item E.~Alba, \emph{Writing a Scientific/Technical Report}, Departamento de Lenguajes y Ciencias de la Computaci\'on, Universidad de M\'alaga, 2002.
+  \item MediTrack Project Team, \emph{MediTrack source repository and README} (commit \texttt{ca672d9} plus the Phase~A working tree), 2026.
+  \item MongoDB Inc., \emph{MongoDB Manual: indexing, unique and partial indexes, TTL indexes, atomic updates}, 2026. [Online]. Available: \url{https://www.mongodb.com/docs/manual/}
+  \item OpenJS Foundation, \emph{Node.js Documentation: test runner, crypto, http}, 2026. [Online]. Available: \url{https://nodejs.org/api/}
+  \item Express.js, \emph{Express 4.x API Reference} and Mongoose, \emph{Mongoose 7 Documentation}, 2026. [Online]. Available: \url{https://expressjs.com/} and \url{https://mongoosejs.com/docs/}
+  \item Meta Open Source, \emph{React Documentation} and Vite, \emph{Vite Guide}, 2026. [Online]. Available: \url{https://react.dev/} and \url{https://vitejs.dev/guide/}
+\end{enumerate}
+
+% ===========================================================================
+%  APPENDIX A -- REQUIREMENTS TRACEABILITY MATRIX
+% ===========================================================================
+\clearpage
+\phantomsection
+\section*{Appendix A. Requirements Traceability Matrix}
+\addcontentsline{toc}{section}{Appendix A. Requirements Traceability Matrix}
+
+Each row maps one SRS requirement to the artefact that implements it and to the evidence
+that verifies it. ``Verified'' means an automated test asserts the behaviour; ``partial''
+means the mechanism exists but does not yet meet the SRS wording; ``planned'' means the
+requirement is scheduled in Table~\ref{tab:futurework} and has no implementation to
+point at.
+
+{\footnotesize
+\renewcommand{\thetable}{33}
+\begin{longtable}{@{}L{1.30cm}L{1.20cm}L{3.30cm}L{1.50cm}L{4.05cm}L{3.25cm}@{}}
+\caption{Traceability from requirement to implementation and evidence}\label{tab:traceability}\\
+\toprule
+\textbf{ID} & \textbf{Prio.} & \textbf{Requirement (abridged)} & \textbf{Status} & \textbf{Implementation} & \textbf{Evidence}\\
+\midrule
+\endfirsthead
+\multicolumn{6}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{ID} & \textbf{Prio.} & \textbf{Requirement (abridged)} & \textbf{Status} & \textbf{Implementation} & \textbf{Evidence}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+FR-1.1 & High & Replenish at watermark 10 $\rightarrow$ 100 & Verified & \texttt{lib/inventory.js}; \texttt{server.js} sweep; \texttt{POST /api/admin/inventory/replenish}; \texttt{scripts/replenish-inventory.js} & \texttt{tests/inventory.test.js} (12)\\
+FR-1.2 & High & Atomic soft hold on add-to-cart & Partial & \texttt{lib/orderService.js} (reservation at checkout); Phase~C adds \texttt{held} & \texttt{tests/cart-orders.test.js}\\
+FR-1.3 & High & Release expired hold automatically & Partial & \texttt{expireStaleOrders}, \texttt{expireOrderById} & \texttt{tests/cart-orders.test.js}\\
+FR-1.4 & High & Detect Rx-only items and block billing & Planned & \texttt{Medicine.prescriptionRequired}; gate in Phase~D & Field asserted in \texttt{tests/inventory.test.js}\\
+FR-1.5 & Medium & Wishlist independent of cart & Planned & Phase~B & ---\\
+FR-1.6 & High & Customer account creation & Verified & \texttt{routes/auth.js} & \texttt{tests/api.test.js}\\
+FR-1.7 & High & Customer login & Verified & \texttt{routes/auth.js}, \texttt{lib/sessions.js} & \texttt{tests/api.test.js}, \texttt{tests/sessions.test.js}\\
+FR-2.1 & High & Block checkout until Rx verified & Planned & Phase~D & ---\\
+FR-2.2 & High & Failed payment leaves state unchanged & Verified & \texttt{lib/orderService.js}, \texttt{routes/orders.js} & \texttt{tests/cart-orders.test.js}\\
+FR-2.3 & High & UPI, debit, credit, net banking (sandbox) & Verified & \texttt{lib/providers/mockPayment.js} & \texttt{tests/cart-orders.test.js}\\
+FR-2.4 & Medium & MediPoints after confirmed payment & Verified & \texttt{lib/medipoints.js}, \texttt{models/MediPointsEntry.js}, \texttt{routes/me.js} & \texttt{tests/medipoints.test.js} (9)\\
+FR-2.5 & Medium & Refill reminder $\rightarrow$ teleconsultation & Planned & \texttt{Medicine.refillDays}; workflow in Phase~E & Field asserted in \texttt{tests/inventory.test.js}\\
+FR-2.6 & High & Immutable purchase history & Verified & \texttt{models/Order.js} snapshots; no mutating route & \texttt{tests/cart-orders.test.js}, \texttt{tests/admin.test.js}\\
+NFR-1.1 & High & RBAC on every protected request & Verified & \texttt{middleware/auth.js}, \texttt{lib/permissions.js} & \texttt{tests/api.test.js}, \texttt{tests/admin.test.js}, \texttt{tests/inventory.test.js}\\
+NFR-1.2 & High & bcrypt + JWT with session expiry & Verified & \texttt{models/User.js}, \texttt{models/Session.js}, \texttt{lib/sessions.js} & \texttt{tests/sessions.test.js}, \texttt{tests/config.test.js}\\
+NFR-1.3 & High & Append-only audit log & Verified & \texttt{lib/audit.js}, \texttt{models/AuditLog.js} & \texttt{tests/admin.test.js}, \texttt{tests/inventory.test.js}\\
+NFR-1.4 & High & Tokens and prescription data protected & Partial & No card data stored; prescription encryption in Phase~D & \texttt{tests/cart-orders.test.js} (brand/last4 only)\\
+NFR-2.1 & High & Atomic reservation, no overselling & Verified & \texttt{lib/orderService.js} & \texttt{tests/cart-orders.test.js}\\
+NFR-2.2 & Medium & Show hold time and Rx status & Partial & \texttt{pages/Payment.jsx} countdown; Phase~C/D complete it & Manual walkthrough\\
+NFR-2.3 & Low & 24$\times$7 operational goal & Goal & Stateless API, idempotent operations, graceful shutdown & Not testable in this prototype\\
+\end{longtable}
+}
+
+% ===========================================================================
+%  APPENDIX B -- API REFERENCE
+% ===========================================================================
+\clearpage
+\phantomsection
+\section*{Appendix B. API Reference}
+\addcontentsline{toc}{section}{Appendix B. API Reference}
+
+{\footnotesize
+\renewcommand{\thetable}{34}
+\begin{longtable}{@{}L{1.55cm}L{5.00cm}L{3.30cm}L{5.31cm}@{}}
+\caption{API surface (part 1: platform, identity and back office)}\label{tab:api1}\\
+\toprule
+\textbf{Method} & \textbf{Path} & \textbf{Access} & \textbf{Purpose}\\
+\midrule
+\endfirsthead
+\multicolumn{4}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Method} & \textbf{Path} & \textbf{Access} & \textbf{Purpose}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+GET & \texttt{/api/health} & Public & Status and database connection state\\
+POST & \texttt{/api/auth/register} & Public, rate limited & Create a customer account (privileged roles rejected)\\
+POST & \texttt{/api/auth/login} & Public, rate limited & Issue an access token and a refresh cookie\\
+POST & \texttt{/api/auth/refresh} & Refresh cookie & Rotate the session and return a new access token\\
+POST & \texttt{/api/auth/logout} & Refresh cookie & Revoke this browser's session\\
+GET & \texttt{/api/auth/me} & Signed in & Current user and permissions\\
+GET & \texttt{/api/auth/sessions} & Signed in & List active sessions, marking the current one\\
+DELETE & \texttt{/api/auth/sessions/:id} & Signed in & Revoke one session\\
+DELETE & \texttt{/api/auth/sessions} & Signed in & Revoke every session and invalidate access tokens\\
+PATCH & \texttt{/api/auth/password} & Signed in & Change the password and revoke all sessions\\
+GET & \texttt{/api/auth/users} & \texttt{users:manage} & List accounts and roles\\
+PATCH & \texttt{/api/auth/users/:id/role} & \texttt{users:manage} & Promote or demote an account (last-admin guard)\\
+POST & \texttt{/api/admin/auth/login} & Public & Back-office sign-in; customers rejected\\
+POST & \texttt{/api/admin/auth/accept-invite} & Public + invite token & Create the invited staff/admin account\\
+GET & \texttt{/api/admin/summary} & \texttt{orders:read:all} & Counters, revenue, low-stock count and inventory configuration\\
+GET & \texttt{/api/admin/orders} & \texttt{orders:read:all} & All orders with status filter, search and paging\\
+GET & \texttt{/api/admin/orders/:id} & \texttt{orders:read:all} & One order with the customer\\
+PATCH & \texttt{/api/admin/orders/:id/status} & \texttt{orders:write} & Fulfilment transition from the allowed map\\
+GET & \texttt{/api/admin/customers} & \texttt{customers:read} & Customers with order count, spend and last order\\
+POST & \texttt{/api/admin/inventory/replenish} & \texttt{catalog:write} & Restock everything at or below the watermark\\
+GET & \texttt{/api/admin/audit} & \texttt{audit:read} & Paginated audit log, filterable by action\\
+POST & \texttt{/api/admin/invites} & \texttt{invites:manage} & Create a single-use invite and return its link once\\
+GET & \texttt{/api/admin/invites} & \texttt{invites:manage} & List pending invites (optionally closed ones)\\
+DELETE & \texttt{/api/admin/invites/:id} & \texttt{invites:manage} & Revoke a pending invite\\
+\midrule
+\multicolumn{4}{@{}l}{\small Table~\thetable{} (continued). API surface (part 2: stock, cart, orders and account)}\\
+\midrule
+\textbf{Method} & \textbf{Path} & \textbf{Access} & \textbf{Purpose}\\
+\midrule
+GET & \texttt{/api/medicines} & Public & List medicines (newest first)\\
+GET & \texttt{/api/medicines/:id} & Public & Read one medicine\\
+POST & \texttt{/api/medicines} & \texttt{catalog:write} & Create a medicine (multipart, optional image)\\
+PATCH & \texttt{/api/medicines/:id} & \texttt{catalog:write} & Update fields, stock, Rx flag, refill cycle or image\\
+DELETE & \texttt{/api/medicines/:id} & \texttt{catalog:write} & Remove a medicine and its image\\
+GET & \texttt{/api/cart} & Guest cookie / JWT & Cart with live prices, stock, issues and totals\\
+POST & \texttt{/api/cart/items} & Guest cookie / JWT & Add or increment a line\\
+PATCH & \texttt{/api/cart/items/:medicineId} & Guest cookie / JWT & Set an exact quantity (0 removes)\\
+DELETE & \texttt{/api/cart/items/:medicineId} & Guest cookie / JWT & Remove a line\\
+DELETE & \texttt{/api/cart} & Guest cookie / JWT & Empty the cart\\
+POST & \texttt{/api/cart/merge} & JWT & Merge the guest cart into the account cart\\
+POST & \texttt{/api/orders} & JWT & Create an order from the cart and reserve stock\\
+GET & \texttt{/api/orders} & JWT & Own order history (newest first)\\
+GET & \texttt{/api/orders/:id} & JWT (owner) & One order; foreign ids return 404\\
+POST & \texttt{/api/orders/:id/pay} & JWT (owner) & Charge through the provider; idempotent; credits points once\\
+POST & \texttt{/api/orders/:id/cancel} & JWT (owner) & Cancel an unpaid order and release stock\\
+GET & \texttt{/api/me/medipoints} & JWT & MediPoints balance, lifetime total and recent ledger entries\\
+GET & \texttt{/uploads/:file} & Public & Serve an uploaded medicine image\\
+\end{longtable}
+}
+
+\noindent\textbf{Payment request bodies.} \texttt{POST /api/orders/:id/pay} accepts
+\texttt{\{ method: "card", details: \{ number, expiry, cvv \} \}},
+\texttt{\{ method: "upi", details: \{ vpa \} \}},
+\texttt{\{ method: "netbanking", details: \{ bank \} \}} and
+\texttt{\{ method: "cod" \}}. A decline returns 402 with \texttt{\{ error, order \}};
+an unknown method returns 400; an expired or non-payable order returns 409.
+
+% ===========================================================================
+%  APPENDIX C -- CONFIGURATION REFERENCE
+% ===========================================================================
+\clearpage
+\phantomsection
+\section*{Appendix C. Configuration Reference}
+\addcontentsline{toc}{section}{Appendix C. Configuration Reference}
+
+All settings are read from \texttt{backend/.env}, which is never committed;
+\texttt{.env.example} documents every key. In production the server refuses to start
+without \texttt{JWT\_SECRET} and \texttt{COOKIE\_SECRET}.
+
+{\footnotesize
+\renewcommand{\thetable}{35}
+\begin{longtable}{@{}L{4.60cm}L{3.40cm}L{7.44cm}@{}}
+\caption{Configuration variables}\label{tab:config}\\
+\toprule
+\textbf{Variable} & \textbf{Default} & \textbf{Effect}\\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\small Table~\thetable{} (continued)}\\
+\toprule
+\textbf{Variable} & \textbf{Default} & \textbf{Effect}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{PORT} & 5000 & HTTP port\\
+\texttt{MONGODB\_URI} & \texttt{mongodb://127.0.0.1:27017/meditrack} & Local or Atlas connection string\\
+\texttt{MONGODB\_DB} & \texttt{meditrack} & Database name used when the URI omits one\\
+\texttt{JWT\_SECRET} & --- (dev fallback, warned) & Signing key for access tokens; mandatory in production\\
+\texttt{JWT\_ACCESS\_TTL} & 15m & Access-token lifetime (NFR-1.2)\\
+\texttt{REFRESH\_TOKEN\_TTL\_DAYS} & 30 & Refresh-session lifetime\\
+\texttt{REFRESH\_REUSE\_GRACE\_MS} & 10000 & Window in which a repeated rotation counts as a two-tab race, not theft\\
+\texttt{COOKIE\_SECRET} & --- (dev fallback, warned) & Signs the cart and refresh cookies; mandatory in production\\
+\texttt{ADMIN\_INVITE\_TTL\_HOURS} & 72 & Lifetime of a staff/admin invite\\
+\texttt{AUTH\_RATE\_LIMIT\_WINDOW\_MS} & 900000 & Window for authentication rate limits\\
+\texttt{AUTH\_LOGIN\_RATE\_LIMIT\_MAX} & 10 & Failed sign-ins per IP + e-mail per window\\
+\texttt{AUTH\_REGISTER\_RATE\_LIMIT\_MAX} & 30 & Registrations per IP per window\\
+\texttt{CORS\_ORIGIN} & (same origin) & Comma-separated allowed origins for cross-origin deployments\\
+\texttt{TAX\_RATE} & 0.05 & Tax applied to the subtotal\\
+\texttt{DELIVERY\_FEE} & 40 & Delivery charge below the threshold\\
+\texttt{FREE\_DELIVERY\_OVER} & 499 & Subtotal at which delivery becomes free\\
+\texttt{PAYMENT\_PROVIDER} & \texttt{mock} & Provider registered in \texttt{lib/paymentGateway.js}\\
+\texttt{PAYMENT\_MOCK\_DELAY\_MS} & 700 & Simulated gateway latency (0 in tests)\\
+\texttt{ORDER\_RESERVATION\_MINUTES} & 30 & How long an unpaid order holds its stock\\
+\texttt{LOW\_STOCK\_WATERMARK} & 10 & FR-1.1 threshold that triggers replenishment\\
+\texttt{REPLENISH\_TO} & 100 & FR-1.1 target quantity after replenishment\\
+\texttt{REPLENISH\_INTERVAL\_MS} & 60000 & How often the sweep looks for low stock\\
+\texttt{INVENTORY\_AUTO\_REPLENISH} & \texttt{on} & Set to \texttt{off} to disable the sweep; the manual endpoint keeps working\\
+\texttt{MEDIPOINTS\_PER\_100} & 1 & Points per whole \rupee100 of medicine subtotal; 0 disables earning\\
+\end{longtable}
+}
+
+% ===========================================================================
+%  APPENDIX D -- TEST EXECUTION LOG
+% ===========================================================================
+\clearpage
+\phantomsection
+\section*{Appendix D. Test Execution Log}
+\addcontentsline{toc}{section}{Appendix D. Test Execution Log}
+
+The following excerpts are unedited console output from this revision. They are included
+so that the reported results can be checked against the artefacts.
+
+\subsection*{Excerpt D.1 --- full backend suite}
+\begin{console}
+$ cd backend && npm test
+...
+# Subtest: a medicine at the watermark is restocked to the target level
+ok 1 - a medicine at the watermark is restocked to the target level
+...
+# Subtest: net banking succeeds through a demo bank and stores only the bank code
+ok - net banking succeeds through a demo bank and stores only the bank code
+...
+1..97
+# tests 97
+# suites 0
+# pass 97
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3791.234159
+\end{console}
+
+\subsection*{Excerpt D.2 --- per-suite counts}
+\begin{console}
+tests/admin.test.js          # pass 9  # fail 0
+tests/api.test.js            # pass 29 # fail 0
+tests/cart-orders.test.js    # pass 21 # fail 0
+tests/config.test.js         # pass 1  # fail 0
+tests/inventory.test.js      # pass 12 # fail 0
+tests/medipoints.test.js     # pass 9  # fail 0
+tests/mongoErrors.test.js    # pass 8  # fail 0
+tests/sessions.test.js       # pass 8  # fail 0
+\end{console}
+
+\subsection*{Excerpt D.3 --- frontend production build}
+\begin{Verbatim}[fontsize=\scriptsize,frame=single,framerule=0.4pt,
+  rulecolor=\color{gray!45},xleftmargin=2pt,framesep=3pt,samepage,commandchars=\\\{\}]
+$ cd frontend && npm run build
+> meditrack-frontend@1.0.0 build
+> vite build
+vite v5.4.21 building for production...
+\checkmark 64 modules transformed.
+dist/index.html                   0.41 kB | gzip:  0.28 kB
+dist/assets/index-C0tg3G4V.css   22.22 kB | gzip:  4.79 kB
+dist/assets/index-BghP2PHm.js   242.36 kB | gzip: 71.52 kB
+\checkmark built in 2.02s
+\end{Verbatim}
+
+\subsection*{Excerpt D.4 --- manual end-to-end run (server with the sweep enabled)}
+\begin{console}
+[inventory] restocked 1: Smoke Rx 250 10->100
+stock after sweep: 100 (expected 100)
+cart add: 201 { total: 302.5 }
+order: 201 { id: '6ae4...', subtotal: 250 }
+netbanking pay: 200 { status: 'paid', method: 'netbanking', brand: 'hdfc' }
+medipoints: 200 { balance: 2, entries: 1 }
+summary inventory config: { lowStockWatermark: 10, replenishTo: 100 } lowStock: 0
+\end{console}
+
+% ===========================================================================
+%  APPENDIX E -- REPRODUCTION PROCEDURE
+% ===========================================================================
+\clearpage
+\phantomsection
+\section*{Appendix E. Reproduction Procedure}
+\addcontentsline{toc}{section}{Appendix E. Reproduction Procedure}
+
+\subsection*{E.1 Prerequisites}
+\begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
+  \item Node.js 18 or later (verified on 22.22.3) with npm; Git; a modern browser.
+  \item MongoDB 6 or later, either a local server or an Atlas cluster. No installation is needed to run the tests, because they start an in-memory MongoDB.
+\end{itemize}
+
+\subsection*{E.2 Backend}
+\begin{console}
+cd backend
+npm install
+cp .env.example .env          # then set MONGODB_URI, JWT_SECRET, COOKIE_SECRET
+npm run db:check              # optional: verify the connection string before starting
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='a-long-password' \
+  ADMIN_NAME='Store Admin' npm run seed:admin
+npm run dev                   # http://localhost:5000
+\end{console}
+
+If no MongoDB is available, run \texttt{npm run db:local} in one terminal (it uses the
+\texttt{mongod} binary downloaded by mongodb-memory-server and keeps data in
+\texttt{backend/.mongo-data}) and start the API from another terminal.
+
+\subsection*{E.3 Frontend}
+\begin{console}
+cd frontend
+npm install
+npm run dev                   # http://localhost:5173, proxies /api and /uploads to :5000
+\end{console}
+
+\subsection*{E.4 Automated verification}
+\begin{Verbatim}[fontsize=\scriptsize,frame=single,framerule=0.4pt,
+  rulecolor=\color{gray!45},xleftmargin=2pt,framesep=3pt,samepage,commandchars=\\\{\}]
+cd backend && npm test        # expect: # pass 97, # fail 0
+cd frontend && npm run build  # expect: \checkmark built, no warnings
+\end{Verbatim}
+
+\subsection*{E.5 Demonstration script}
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt,topsep=2pt]
+  \item Sign in at \texttt{/admin/login} as the seeded administrator, then open Stock $\rightarrow$ Add medicine and add a medicine with stock 10, a price of \rupee250, the Rx box ticked and a refill cycle of 21 days.
+  \item Wait up to \texttt{REPLENISH\_INTERVAL\_MS} (or press Restock low stock): the quantity moves to 100 and an audit entry \texttt{medicine.replenish} appears under Audit.
+  \item Register a customer at \texttt{/login}, add the medicine to the cart and check out. The payment page shows the reservation countdown.
+  \item Pay by Net banking $\rightarrow$ HDFC. The order becomes Paid; the receipt shows the MediPoints earned (2 for a \rupee250 subtotal) and the running balance.
+  \item Repeat with the demo bank that always declines to show the retry path, and with cash on delivery to show that points are withheld until the money is collected.
+\end{enumerate}
+
+\subsection*{E.6 Verification checklist for a reviewer}
+\begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
+  \item Every requirement in Appendix~A has a status and, where verified, a named test file.
+  \item \texttt{npm test} in \texttt{backend} reproduces 97 passing cases with no database installation.
+  \item The three partial requirements (FR-1.2, FR-1.3, NFR-2.2) and the four planned ones (FR-1.4, FR-1.5, FR-2.1, FR-2.5) are the only gaps, and Table~\ref{tab:futurework} dates them to phases B--F.
+  \item No secret, token or card number appears in the repository, in the audit log or in an API response.
+\end{itemize}
+
+\vspace{1.2cm}
+\begin{center}
+--- End of report ---
+\end{center}
+
+\end{document}
