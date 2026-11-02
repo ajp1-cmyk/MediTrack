@@ -1,0 +1,24 @@
+# Frontend: React (Vite) app in frontend/, published as static files.
+# Backend: Express app in backend/, served by netlify/functions/api.js.
+[build]
+  command = "npm --prefix backend ci --omit=dev && npm --prefix frontend ci && npm --prefix frontend run build"
+  publish = "frontend/dist"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/uploads/*"
+  to = "/.netlify/functions/api/uploads/:splat"
+  status = 200
+  force = true
+
+# Single-page app: let React Router handle every other path.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

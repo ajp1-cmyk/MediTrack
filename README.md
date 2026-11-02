@@ -281,6 +281,28 @@ Open http://localhost:5173 in your browser.
 The Vite dev server proxies `/api` and `/uploads` to the backend, so you can call
 the API with relative URLs from the frontend.
 
+## Deploying to Netlify
+
+`netlify.toml` builds `frontend/` into static files and runs the Express backend as a
+Netlify Function (`netlify/functions/api.js` → `backend/netlify.js`). Requests to `/api/*`
+and `/uploads/*` are rewritten to the function, so the SPA and the API share one origin.
+Uploaded medicine images are stored in Netlify Blobs, because function disks are temporary.
+
+Set these environment variables under **Project configuration → Environment variables**
+(the API returns a 500 explaining what is missing until they exist):
+
+| Variable | Value |
+| -------- | ----- |
+| `MONGODB_URI` | A MongoDB Atlas connection string. In Atlas → Network Access, allow `0.0.0.0/0`, because Netlify Functions have no fixed IP addresses. |
+| `JWT_SECRET` | A long random string: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
+| `COOKIE_SECRET` | A different long random string |
+
+The other values in `backend/.env.example` are optional. Background sweeps (restocking and
+cart-hold release) can't run continuously in a serverless function. Lapsed cart holds are
+still released when a cart is read. Admins can restock from the dashboard. After the first
+deploy, create the first admin by running `npm run seed:admin` locally with the same
+`MONGODB_URI`.
+
 ## Authentication & authorisation
 
 | Who | Read stock list | Open `/admin` console | Create / update / delete stock | Fulfil orders | Manage users, invites & audit |
