@@ -182,13 +182,22 @@ function removeUpload(filename) {
   if (!filename) return;
   // MongoDB is the durable store on Netlify and a harmless no-op locally.
   deleteImageFromDb(filename).catch(() => {});
-  if (SERVERLESS) {
+
+  if (!SERVERLESS) {
+    fs.unlink(path.join(UPLOADS_DIR, filename), () => {});
+    return;
+  }
+
+  // Netlify Blobs is only a legacy store now. `getStore()` throws synchronously
+  // when the function has no Blobs context (local serverless runs, tests), and a
+  // cleanup must never turn a successful delete into a 500.
+  try {
     blobStore()
       .delete(filename)
       .catch(() => {});
-    return;
+  } catch {
+    // Blobs unavailable — the MongoDB row is already gone.
   }
-  fs.unlink(path.join(UPLOADS_DIR, filename), () => {});
 }
 
 /**

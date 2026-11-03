@@ -939,7 +939,10 @@ from plain queries, replace-in-place, deletion), the serverless `/uploads/:name`
 (content type, cache header, 404s, traversal) and the bundled demo-file fallback.
 `tests/serverless-response.test.js` covers the Netlify response encoding: PNG/JPEG/WEBP/PDF
 bodies must be base64-encoded (otherwise `serverless-http` corrupts them), SVG and JSON stay
-text, and the `/.netlify/functions/api` prefix is stripped.
+text, and the `/.netlify/functions/api` prefix is stripped. `tests/image-upload-serverless.test.js`
+runs the app in serverless mode and checks the whole `/admin/stock` chain: the bytes land in
+`medicineimages`, `/uploads/<file>` returns them unchanged, and deleting the medicine removes
+them (even when Netlify Blobs is not configured).
 **No MongoDB installation is required to run it.**
 
 ## Deployment
