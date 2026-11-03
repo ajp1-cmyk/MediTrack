@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { useWishlist } from '../context/WishlistContext.jsx';
 import { formatCurrency } from '../lib/format.js';
 
-export default function MedicineList({ medicines }) {
+export default function MedicineList({ medicines, emptyMessage }) {
   const { openAddDialog } = useCart();
   const { user } = useAuth();
   const { isSaved, add, remove } = useWishlist();
@@ -39,7 +39,7 @@ export default function MedicineList({ medicines }) {
   if (medicines.length === 0) {
     return (
       <p className="empty">
-        No medicines in stock yet. Please check back soon.
+        {emptyMessage || 'No medicines in stock yet. Please check back soon.'}
       </p>
     );
   }
@@ -77,17 +77,27 @@ export default function MedicineList({ medicines }) {
                 {saved ? '♥' : '♡'}
               </button>
 
-              {m.image ? (
-                <img
-                  src={`/uploads/${m.image}`}
-                  alt={m.name}
-                  className="medicine-image"
-                />
-              ) : (
-                <div className="medicine-image placeholder">💊</div>
-              )}
+              <Link
+                to={`/medicines/${m.id}`}
+                className="medicine-card-link"
+                aria-label={`View details for ${m.name}`}
+              >
+                {m.image ? (
+                  <img
+                    src={`/uploads/${m.image}`}
+                    alt={m.name}
+                    className="medicine-image"
+                  />
+                ) : (
+                  <div className="medicine-image placeholder">💊</div>
+                )}
+              </Link>
               <div className="medicine-body">
-                <h3>{m.name}</h3>
+                <h3>
+                  <Link to={`/medicines/${m.id}`} className="medicine-title-link">
+                    {m.name}
+                  </Link>
+                </h3>
                 {(m.category || m.prescriptionRequired) && (
                   <div className="badge-row">
                     {m.category && <span className="badge badge-gray">{m.category}</span>}
@@ -101,6 +111,10 @@ export default function MedicineList({ medicines }) {
                 <p><span>EXP:</span> {m.exp}</p>
                 <p><span>Price:</span> {formatCurrency(m.price)}</p>
                 <p><span>Stock:</span> {m.stock} units</p>
+
+                <Link to={`/medicines/${m.id}`} className="medicine-details-link">
+                  View details <span aria-hidden="true">→</span>
+                </Link>
 
                 <button
                   type="button"

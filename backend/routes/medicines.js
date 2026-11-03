@@ -3,6 +3,7 @@
 // Reading stock is public (the landing page lists it for everyone).
 // Creating / updating / deleting stock requires a signed-in admin.
 const express = require('express');
+const mongoose = require('mongoose');
 const multer = require('multer');
 const path = require('path');
 const Medicine = require('../models/Medicine');
@@ -47,6 +48,11 @@ const UPDATABLE_FIELDS = ['name', 'mfd', 'exp', 'price', 'stock', 'category', 'd
 // Every field PATCH /api/medicines/:id understands (used in the error message).
 const PATCHABLE_FIELDS = [...UPDATABLE_FIELDS, 'prescriptionRequired', 'refillDays', 'image'];
 
+/** Escape a user-supplied string before it is used inside a RegExp. */
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Read a boolean sent in a multipart/form-data body. Form fields are always
  * strings, and Mongoose would cast the string "false" to `true`, so parse it
@@ -88,19 +94,54 @@ function medicineSnapshot(medicine) {
 // every write operation. Customers get 403.
 const canEditStock = [requireAuth, requirePermission('catalog:write')];
 
-// GET /api/medicines - list all medicines (newest first)
+// GET /api/medicines?q=&category= — public stock list (newest first).
+//
+// `q` matches the name, category or description (case-insensitive substring);
+// `category` is an exact, case-insensitive match. Both are optional, so the
+// storefront can use the same endpoint for browsing and searching.
 router.get(
   '/',
-  asyncHandler(async (_req, res) => {
-    const medicines = await Medicine.find().sort({ created_at: -1 });
+  asyncHandler(async (req, res) => {
+    const filter = {};
+
+    const q = String(req.query.q || '').trim();
+    if (q) {
+      const pattern = new RegExp(escapeRegex(q), 'i');
+      filter.$or = [{ name: pattern }, { category: pattern }, { description: pattern }];
+    }
+
+    const category = String(req.query.category || '').trim();
+    if (category) {
+      filter.category = new RegExp(`^${escapeRegex(category)}$`, 'i');
+    }
+
+    const medicines = await Medicine.find(filter).sort({ created_at: -1 });
     res.json(medicines);
   })
 );
 
-// GET /api/medicines/:id - get a single medicine
+// GET /api/medicines/categories — distinct categories for the filter dropdown.
+// Declared before `/:id` so "categories" is not treated as an object id.
+router.get(
+  '/categories',
+  asyncHandler(async (_req, res) => {
+    const categories = await Medicine.distinct('category');
+    res.json(
+      categories
+        .filter((category) => typeof category === 'string' && category.trim())
+        .sort((a, b) => a.localeCompare(b))
+    );
+  })
+);
+
+// GET /api/medicines/:id — one product for the detail page.
 router.get(
   '/:id',
   asyncHandler(async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      throw httpError(404, 'Medicine not found');
+    }
+
     const medicine = await Medicine.findById(req.params.id);
     if (!medicine) {
       throw httpError(404, 'Medicine not found');

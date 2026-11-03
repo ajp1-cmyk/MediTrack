@@ -11,6 +11,7 @@ import AddMedicine from './pages/AddMedicine.jsx';
 import Login from './pages/Login.jsx';
 import AdminRegister from './pages/AdminRegister.jsx';
 import Cart from './pages/Cart.jsx';
+import MedicineDetail from './pages/MedicineDetail.jsx';
 import Checkout from './pages/Checkout.jsx';
 import Payment from './pages/Payment.jsx';
 import OrderConfirmation from './pages/OrderConfirmation.jsx';
@@ -39,6 +40,7 @@ function AppShell() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/cart" element={<Cart />} />
+        <Route path="/medicines/:id" element={<MedicineDetail />} />
 
         {/* Checkout and orders need an account (the cart itself does not). */}
         <Route

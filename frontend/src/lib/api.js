@@ -267,6 +267,13 @@ export const adminApi = {
 
 
 
+/** Public catalogue: browse, search, categories and a single product. */
+export const medicinesApi = {
+  list: ({ q, category } = {}) => apiFetch(`/api/medicines${queryString({ q, category })}`),
+  categories: () => apiFetch('/api/medicines/categories'),
+  get: (id) => apiFetch(`/api/medicines/${id}`),
+};
+
 /** Cart endpoints. Every mutation returns the freshly serialised cart. */
 export const cartApi = {
   get: () => apiFetch('/api/cart'),

@@ -129,6 +129,7 @@ meditrack/
             ├── Orders.jsx                 # order history
             ├── Wishlist.jsx               # saved medicines + move to cart (FR-1.5)
             ├── Prescriptions.jsx          # upload / status / history (FR-1.4, FR-2.1)
+            ├── MedicineDetail.jsx         # product page: details, add to cart, wishlist
             └── admin/
                 ├── AdminLogin.jsx         # separate back-office sign-in
                 ├── AdminDashboard.jsx     # counters + recent orders
@@ -646,8 +647,9 @@ Rules of thumb for MongoDB:
 
 | Method | Endpoint | Access | Description |
 | ------ | -------- | ------ | ----------- |
-| GET | `/api/medicines` | public | List stock (newest first) |
-| GET | `/api/medicines/:id` | public | Get a single medicine |
+| GET | `/api/medicines?q=&category=` | public | Stock list (newest first). `q` is a case-insensitive substring of the name, category or description; `category` is an exact, case-insensitive filter |
+| GET | `/api/medicines/categories` | public | Distinct, sorted categories for the storefront filter |
+| GET | `/api/medicines/:id` | public | One product for `/medicines/:id`; unknown or malformed ids are **404** |
 | POST | `/api/medicines` | **admin or staff** | Add stock (multipart/form-data) |
 | PATCH | `/api/medicines/:id` | **admin or staff** | Update details and/or the stock quantity |
 | DELETE | `/api/medicines/:id` | **admin or staff** | Remove a medicine from stock |
@@ -662,6 +664,17 @@ Rules of thumb for MongoDB:
 - `price` — number (e.g. `120.50`)
 - `stock` — whole-number quantity
 - `image` — image file (optional; JPEG/PNG/GIF/WEBP, max 5 MB)
+- `category` — optional storefront grouping, e.g. `Pain Relief & Fever`
+- `description` — optional short text shown on cards and the product page
+- `prescriptionRequired` — `true` for Rx-only medicines (checkout gate)
+- `refillDays` — 1–365, how long one pack lasts (refill reminder)
+
+The storefront keeps search state in the URL: `/?q=paracetamol` and
+`/?category=Vitamins%20%26%20Supplements` are shareable and survive reloads. Typing is
+debounced (300 ms) and every change queries the API, so the list and the result count always
+reflect the server. Clicking a card's image/title (or **View details**) opens
+`/medicines/:id`, which shows the full description, category, Rx/OTC status, stock, dates and
+refill cycle, with **Add to cart** and **Save for later** actions.
 
 ### Cart
 
@@ -815,7 +828,8 @@ same order without charging again.
 
 | Route | Page | Who |
 | ----- | ---- | --- |
-| `/` | Landing page with the stock list and add-to-cart buttons | everyone |
+| `/` | Landing page with the stock list, search box and category filter | everyone |
+| `/medicines/:id` | Product page: image, description, price, stock, Rx status, add to cart / save | everyone |
 | `/cart` | Cart: quantities, availability warnings, totals | everyone (guest cookie or signed in) |
 | `/wishlist` | Wishlist: saved medicines, move to cart, remove | signed in |
 | `/prescriptions` | Upload a prescription, see verification status and history | signed in |
@@ -896,7 +910,10 @@ rejection (including the validity window and superseding), the checkout gate for
 missing/rejected/expired prescriptions and the order snapshot. `tests/purchase-limit.test.js`
 covers env parsing, UTC-day boundaries, counted statuses, the cart summary and enforcement at
 checkout (over-cap refusal without moving stock, exact-cap success, cancelled orders freeing
-allowance and `0` disabling the cap).
+allowance and `0` disabling the cap). `tests/catalog-search.test.js` covers the storefront
+catalogue: partial, case-insensitive `q` searches over name/category/description, the exact
+category filter, combining both, regex characters treated literally, the sorted category
+endpoint and the single-product endpoint (including 404s for malformed ids).
 **No MongoDB installation is required to run it.**
 
 ## Deployment
