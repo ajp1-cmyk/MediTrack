@@ -437,6 +437,48 @@
   color: #6b7280;
 }
 
+/* Optional Clerk sign-in ("Continue with Clerk"). */
+.clerk-login {
+  margin-top: 20px;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+  color: #9ca3af;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e6e8ef;
+}
+
+.clerk-hint {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+/* Clerk renders its own card; centre it inside the MediTrack form card. */
+.clerk-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.clerk-panel .cl-rootBox {
+  width: 100%;
+}
+
 .auth-links {
   text-align: center;
 }

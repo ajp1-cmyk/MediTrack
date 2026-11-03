@@ -7,7 +7,8 @@ catalogue, add medicines to a cart, check out, and pay on a sandbox payment page
 - **Backend:** Node.js + Express
 - **Database:** MongoDB via Mongoose — `medicines`, `users`, `carts`, `wishlists`, `orders`,
   `sessions`, `admininvites`, `medipointsentries`, `auditlogs` and `prescriptions` collections
-- **Auth:** JWT (`jsonwebtoken`) with bcrypt-hashed passwords (`bcryptjs`)
+- **Auth:** JWT (`jsonwebtoken`) with bcrypt-hashed passwords (`bcryptjs`); optional
+  **Clerk** sign-in (email / Google / GitHub) that is exchanged for the same MediTrack session
 - **Cart session:** signed, httpOnly cookie + server-side cart document (`cookie-parser`)
 - **Payments:** provider adapter with a built-in sandbox gateway (`PAYMENT_PROVIDER=mock`)
 - **Image upload:** multer (disk in `backend/uploads/` locally, bytes in MongoDB `medicineimages` on Netlify)
@@ -66,6 +67,7 @@ meditrack/
 │   │   ├── prescriptions.js   # AES-256-GCM files, validity + checkout gate (FR-1.4/2.1)
 │   │   ├── purchaseLimit.js   # daily unit allowance + checkout check (NFR-2.2)
 │   │   ├── imageStore.js      # medicine images: disk locally, MongoDB (`medicineimages`) on Netlify
+│   │   ├── clerk.js           # optional Clerk sign-in: verify token + read profile
 │   │   ├── paymentGateway.js  # provider registry + charge()
 │   │   └── providers/
 │   │       └── mockPayment.js # sandbox gateway (deterministic test cards)
@@ -79,7 +81,7 @@ meditrack/
 │   │   ├── migrate-roles.js   # `npm run migrate:roles` — apply pending data migrations
 │   │   └── replenish-inventory.js # `npm run inventory:replenish` — one restock pass
 │   ├── routes/
-│   │   ├── auth.js            # register / login / refresh / logout / sessions / users
+│   │   ├── auth.js            # register / login / refresh / logout / sessions / users / clerk
 │   │   ├── adminAuth.js       # public back-office login + invite acceptance
 │   │   ├── admin.js           # summary / orders / customers / audit / invites / restock
 │   │   ├── medicines.js       # stock CRUD + image upload (staff + admin)
@@ -88,9 +90,9 @@ meditrack/
 │   │   ├── orders.js          # checkout, order history, pay, cancel
 │   │   ├── prescriptions.js   # upload / history / decrypted file (FR-1.4)
 │   │   └── me.js              # customer account extras (MediPoints)
-│   ├── tests/                 # API tests (stock, auth sessions, admin/roles, cart, holds,
-│   │                          # payments, inventory, MediPoints, wishlist, prescriptions,
-│   │                          # daily purchase limit)
+│   ├── tests/                 # API tests (stock, auth sessions, Clerk sign-in,
+│   │                          # admin/roles, cart, holds, payments, inventory,
+│   │                          # MediPoints, wishlist, prescriptions, daily limit)
 │   ├── uploads/               # (created at runtime) uploaded images
 │   └── .env.example           # environment template
 ├── netlify.toml               # build + function rewrites + bundled images + SPA fallback
@@ -104,9 +106,12 @@ meditrack/
         │   └── WishlistContext.jsx        # account wishlist, empty on sign-out
         ├── lib/
         │   ├── api.js                     # fetch wrapper (memory JWT + refresh) + APIs
+        │   ├── clerk.js                   # VITE_CLERK_PUBLISHABLE_KEY → clerkEnabled flag
         │   └── format.js                  # currency, dates, status labels
         ├── components/
         │   ├── Navbar.jsx                 # nav + cart/wishlist badges + user chip
+        │   ├── ClerkAuthPanel.jsx         # Clerk <SignIn /> + session exchange (optional)
+        │   ├── ClerkSessionBridge.jsx     # log out of Clerk with MediTrack (optional)
         │   ├── ProtectedRoute.jsx         # role-guarded routes
         │   ├── MedicineForm.jsx           # stock entry form
         │   ├── MedicineList.jsx           # stock list + add-to-cart + save-for-later heart
@@ -628,6 +633,7 @@ Rules of thumb for MongoDB:
 | ------ | -------- | ---- | ------ |
 | POST | `/api/auth/register` | `{ name, email, password }` | public → **customer only**; staff/admin require an invite |
 | POST | `/api/auth/login` | `{ email, password }` | public → `{ token, user }` + refresh cookie |
+| POST | `/api/auth/clerk` | `{ token }` (Clerk session JWT) | public → same session as `/login`; `503` when `CLERK_SECRET_KEY` is unset |
 | POST | `/api/auth/refresh` | – (httpOnly cookie) | rotate the refresh cookie → new `{ token, user }`; `409` means a concurrent tab won, retry |
 | POST | `/api/auth/logout` | – (httpOnly cookie) | revoke this browser's session and clear the cookie |
 | GET | `/api/auth/me` | – | signed in |
@@ -642,6 +648,54 @@ Rules of thumb for MongoDB:
 > **30 days** (`REFRESH_TOKEN_TTL_DAYS`). `JWT_EXPIRES_IN` is deprecated and ignored.
 > Rate limits are still in memory, so use a shared store when running multiple API
 > instances.
+
+### Clerk sign-in (optional)
+
+Clerk replaces only the **sign-in screen**; MediTrack still owns the session, roles and
+permissions. Leave the keys unset and nothing changes — the email + password form stays
+the only option and `/api/auth/clerk` answers `503`.
+
+1. Create an application at [dashboard.clerk.com](https://dashboard.clerk.com) and enable
+   the strategies you want (email code/link, Google, GitHub …).
+2. Add your origins to the Clerk app (Home URL / allowed origins):
+   `http://localhost:5173` and `https://<site>.netlify.app`.
+3. Set the two keys:
+
+   | Where | Variable | Value |
+   | ----- | -------- | ----- |
+   | `frontend/.env` (and Netlify **build** env) | `VITE_CLERK_PUBLISHABLE_KEY` | `pk_test_…` |
+   | `backend/.env` (and Netlify **function** env) | `CLERK_SECRET_KEY` | `sk_test_…` |
+
+   `frontend/.env.example` and `backend/.env.example` document the variables. Vite only
+   exposes variables prefixed with `VITE_`, and they are **inlined at build time**, so set
+   `VITE_CLERK_PUBLISHABLE_KEY` before `npm run build` / the Netlify build.
+
+How it works:
+
+```
+/login → "Continue with Clerk" → Clerk's <SignIn /> UI
+      → Clerk session JWT → POST /api/auth/clerk { token }
+      → verifyToken() + users.getUser()            (backend/lib/clerk.js)
+      → find-or-create the `users` row             (routes/auth.js)
+      → MediTrack JWT + httpOnly refresh cookie    (lib/sessions.js)
+```
+
+Account rules (`routes/auth.js`, `lib/clerk.js`):
+
+- a known `clerkUserId` signs straight in to its existing account;
+- a **verified** Clerk email matching an existing `customer` links that account without
+  changing its role, and its password login keeps working;
+- unverified Clerk emails are refused (`403`), so nobody can claim an account by typing
+  someone else's address;
+- `staff` / `admin` accounts stay password-only unless you set
+  `CLERK_ALLOW_BACKOFFICE_LOGIN=true`;
+- brand-new Clerk users become `customer` accounts with `authProvider: "clerk"` and no
+  local password, so `PATCH /api/auth/password` explains that Clerk manages it.
+
+Optional hardening: set `CLERK_AUTHORIZED_PARTIES` (comma-separated origins) to reject
+session tokens minted for other origins of the same Clerk instance. Logging out of
+MediTrack also signs out of Clerk (`ClerkSessionBridge`), so the login page does not
+immediately sign you back in.
 
 ### Back office
 
@@ -908,7 +962,10 @@ image upload and 404s. `tests/cart-orders.test.js` covers the signed cart cookie
 guest-cart merge, quantity/stock/expiry validation, server-side totals, checkout and stock
 reservation, rollback, card/UPI/net-banking/COD payments, declines and retries, cancellation,
 expiry, ownership checks and order history. `tests/sessions.test.js` covers refresh-token
-rotation, reuse detection and revocation, and `tests/admin.test.js` covers the role split,
+rotation, reuse detection and revocation, `tests/clerk-auth.test.js` covers Clerk sign-in
+(missing/unconfigured tokens, new accounts, repeat sign-ins, linking by verified email,
+the back-office opt-in, conflicting links and the password-change guard), and
+`tests/admin.test.js` covers the role split,
 staff stock rights, invite creation/acceptance/expiry, order fulfilment transitions, customer
 stats and the audit log. `tests/inventory.test.js` covers the low-stock watermark, expired
 stock being skipped, the configurable watermark/target, the concurrent-sweep guard, RBAC on
@@ -973,6 +1030,9 @@ JWT_SECRET=<long random value>
 COOKIE_SECRET=<another long random value, different from JWT_SECRET>
 RX_ENCRYPTION_KEY=<64 hex characters>
 PAYMENT_PROVIDER=mock
+# Optional Clerk sign-in (see "Clerk sign-in" above)
+# VITE_CLERK_PUBLISHABLE_KEY=pk_test_...   (Netlify build env — Vite inlines it)
+# CLERK_SECRET_KEY=sk_test_...             (function env — server only)
 # CORS_ORIGIN=https://<custom-domain>,https://<branch>--<site>.netlify.app
 ```
 

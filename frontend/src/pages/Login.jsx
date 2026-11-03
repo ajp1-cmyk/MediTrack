@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import ClerkAuthPanel from '../components/ClerkAuthPanel.jsx';
+import { clerkEnabled } from '../lib/clerk.js';
 
 export default function Login() {
   const { login, register, user, sessionExpired, clearSessionExpired } = useAuth();
@@ -19,6 +21,8 @@ export default function Login() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  // Clerk's prebuilt UI is mounted on demand (only when it is configured).
+  const [showClerk, setShowClerk] = useState(false);
 
   const update = (name, value) => setForm((prev) => ({ ...prev, [name]: value }));
 
@@ -159,6 +163,35 @@ export default function Login() {
 
           {error && <p className="error">{error}</p>}
         </form>
+
+        {clerkEnabled && (
+          <div className="clerk-login">
+            <p className="auth-divider">
+              <span>or</span>
+            </p>
+            {showClerk ? (
+              <ClerkAuthPanel />
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-block"
+                  onClick={() => {
+                    setShowClerk(true);
+                    setError('');
+                    clearSessionExpired();
+                  }}
+                >
+                  Continue with Clerk
+                </button>
+                <p className="clerk-hint">
+                  Sign in with the email, Google or GitHub account you already use — Clerk
+                  handles the sign-in and MediTrack keeps your orders and wishlist.
+                </p>
+              </>
+            )}
+          </div>
+        )}
 
         <p className="auth-hint">
           Customer accounts can browse stock and place orders. Staff and administrators sign

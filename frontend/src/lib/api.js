@@ -186,6 +186,13 @@ export const authApi = {
   me: () => apiFetch('/api/auth/me'),
   // Silent restore of the session on page load.
   refresh: () => refreshAccessToken({ notify: false }),
+  // Exchange a verified Clerk session token for MediTrack's own session.
+  clerkExchange: (token) =>
+    apiFetch('/api/auth/clerk', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+      retryOnUnauthorized: false,
+    }),
   logout: () =>
     apiFetch('/api/auth/logout', { method: 'POST', retryOnUnauthorized: false }),
   sessions: () => apiFetch('/api/auth/sessions'),

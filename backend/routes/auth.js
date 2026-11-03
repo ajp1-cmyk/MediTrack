@@ -19,6 +19,8 @@ const { loginLimiter, registerLimiter } = require('../middleware/rateLimit');
 const { rejectFormBody } = require('../middleware/requestGuards');
 const { httpError, asyncHandler } = require('../lib/errors');
 const { recordAudit } = require('../lib/audit');
+const clerk = require('../lib/clerk');
+const { isBackOffice } = require('../lib/permissions');
 const {
   readRefreshToken,
   setRefreshCookie,
@@ -156,6 +158,96 @@ router.post(
   })
 );
 
+// POST /api/auth/clerk — exchange a verified Clerk session for a MediTrack one.
+//
+// The browser signs in with Clerk's UI and posts the Clerk session JWT here. We
+// verify it server-side, map the Clerk user to a local `users` row, then issue
+// the same access token + refresh cookie as the password form, so every other
+// route (roles, carts, orders, prescriptions) keeps working unchanged.
+//
+// Linking rules:
+//   • a known clerkUserId signs straight in
+//   • a verified Clerk email matching an existing *customer* links that account
+//     (the role is never changed)
+//   • staff/admin accounts require CLERK_ALLOW_BACKOFFICE_LOGIN=true, so a Clerk
+//     account can never take over the back office without an explicit opt-in
+//   • anything else creates a new `customer` account
+router.post(
+  '/clerk',
+  loginLimiter,
+  rejectFormBody,
+  asyncHandler(async (req, res) => {
+    const body = req.body || {};
+    const sessionToken = typeof body.token === 'string' ? body.token.trim() : '';
+
+    if (!sessionToken) {
+      throw httpError(400, 'A Clerk session token is required');
+    }
+    if (!clerk.configured()) {
+      throw httpError(503, 'Clerk sign-in is not configured on this server.');
+    }
+
+    const identity = await clerk.resolveClerkIdentity(sessionToken);
+
+    let user = await User.findOne({ clerkUserId: identity.clerkUserId });
+    let created = false;
+
+    if (!user) {
+      const existing = await User.findOne({ email: identity.email });
+
+      if (existing) {
+        if (existing.clerkUserId && existing.clerkUserId !== identity.clerkUserId) {
+          throw httpError(409, 'This email address is linked to a different Clerk account.');
+        }
+        if (isBackOffice(existing.role) && process.env.CLERK_ALLOW_BACKOFFICE_LOGIN !== 'true') {
+          // A verified email is strong evidence, but back-office access also
+          // guards stock, orders and prescriptions — keep it password-only
+          // unless the owner explicitly opts in.
+          throw httpError(
+            403,
+            'Back-office accounts must sign in with their MediTrack password. ' +
+              'Set CLERK_ALLOW_BACKOFFICE_LOGIN=true to allow Clerk for them.'
+          );
+        }
+
+        // Link the Clerk identity to the existing account without touching its role.
+        existing.clerkUserId = identity.clerkUserId;
+        await existing.save();
+        user = existing;
+      } else {
+        user = new User({
+          name: identity.name,
+          email: identity.email,
+          role: 'customer',
+          authProvider: 'clerk',
+          clerkUserId: identity.clerkUserId,
+        });
+        await user.save();
+        created = true;
+      }
+    }
+
+    // Same session mechanism as every other sign-in path.
+    const { token, expiresAt } = await createSession(user, req);
+    setRefreshCookie(res, token, expiresAt);
+
+    await recordAudit({
+      req,
+      actor: user,
+      action: created ? 'auth.clerk_register' : 'auth.clerk_login',
+      targetType: 'user',
+      targetId: user._id,
+      after: { email: user.email, role: user.role },
+    });
+
+    return res.status(created ? 201 : 200).json({
+      token: signToken(user),
+      user,
+      refreshExpiresAt: expiresAt,
+    });
+  })
+);
+
 // POST /api/auth/refresh — rotate the refresh cookie and mint a new access token.
 // The refresh cookie alone authenticates this route, so it still works after the
 // 15-minute access token has expired.
@@ -213,6 +305,13 @@ router.patch(
     }
 
     const user = await User.findById(req.user._id).select('+passwordHash');
+    if (user && user.authProvider === 'clerk' && !user.passwordHash) {
+      // Clerk-created accounts have no local password to change.
+      throw httpError(
+        400,
+        'This account signs in with Clerk. Change your password in your Clerk account.'
+      );
+    }
     if (!user || !(await user.verifyPassword(currentPassword))) {
       // 400 (not 401) so the SPA does not try to refresh the session for a
       // simple form mistake.

@@ -1,11 +1,14 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { ClerkProvider } from '@clerk/clerk-react';
 import Navbar from './components/Navbar.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import AddToCartDialog from './components/AddToCartDialog.jsx';
 import AdminLayout from './components/AdminLayout.jsx';
+import ClerkSessionBridge from './components/ClerkSessionBridge.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { CartProvider } from './context/CartContext.jsx';
 import { WishlistProvider } from './context/WishlistContext.jsx';
+import { CLERK_PUBLISHABLE_KEY, clerkEnabled } from './lib/clerk.js';
 import Home from './pages/Home.jsx';
 import AddMedicine from './pages/AddMedicine.jsx';
 import Login from './pages/Login.jsx';
@@ -149,8 +152,11 @@ function AppShell() {
 }
 
 export default function App() {
-  return (
+  // Clerk is optional: without a publishable key nothing Clerk-related mounts and
+  // the email + password form stays the only sign-in method.
+  const tree = (
     <AuthProvider>
+      {clerkEnabled && <ClerkSessionBridge />}
       <BrowserRouter>
         <CartProvider>
           <WishlistProvider>
@@ -159,6 +165,14 @@ export default function App() {
         </CartProvider>
       </BrowserRouter>
     </AuthProvider>
+  );
+
+  if (!clerkEnabled) return tree;
+
+  return (
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} afterSignOutUrl="/">
+      {tree}
+    </ClerkProvider>
   );
 }
 

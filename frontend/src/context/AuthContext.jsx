@@ -18,6 +18,8 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
   const channelRef = useRef(null);
+  // Lets the Clerk bridge sign the Clerk session out when MediTrack logs out.
+  const externalSignOutRef = useRef(null);
 
   // Restore the session from the refresh cookie on page load.
   useEffect(() => {
@@ -88,6 +90,23 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  /**
+   * Sign in with Clerk: the panel hands over Clerk's session JWT, the API
+   * verifies it and returns the normal MediTrack session (token + user).
+   */
+  const loginWithClerk = useCallback(async (clerkSessionToken) => {
+    const data = await authApi.clerkExchange(clerkSessionToken);
+    setToken(data.token);
+    setUser(data.user);
+    setSessionExpired(false);
+    return data.user;
+  }, []);
+
+  /** Called by the Clerk bridge so "Log out" also ends the Clerk session. */
+  const registerExternalSignOut = useCallback((signOutFn) => {
+    externalSignOutRef.current = signOutFn || null;
+  }, []);
+
   /** Staff/admin sign-in from /admin/login. */
   const loginAdmin = useCallback(async (email, password) => {
     const data = await adminApi.login(email, password);
@@ -114,6 +133,13 @@ export function AuthProvider({ children }) {
       // Offline / already expired: still clear the local state.
     }
 
+    // End the Clerk session too (no-op when Clerk is not configured).
+    try {
+      await externalSignOutRef.current?.();
+    } catch {
+      // A Clerk failure must not stop the MediTrack sign-out.
+    }
+
     setToken(null);
     setUser(null);
     setSessionExpired(false);
@@ -135,6 +161,8 @@ export function AuthProvider({ children }) {
       clearSessionExpired,
       login,
       loginAdmin,
+      loginWithClerk,
+      registerExternalSignOut,
       register,
       acceptAdminInvite,
       logout,
@@ -150,6 +178,8 @@ export function AuthProvider({ children }) {
       clearSessionExpired,
       login,
       loginAdmin,
+      loginWithClerk,
+      registerExternalSignOut,
       register,
       acceptAdminInvite,
       logout,
