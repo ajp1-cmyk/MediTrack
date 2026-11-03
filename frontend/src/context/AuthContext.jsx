@@ -133,17 +133,18 @@ export function AuthProvider({ children }) {
       // Offline / already expired: still clear the local state.
     }
 
-    // End the Clerk session too (no-op when Clerk is not configured).
-    try {
-      await externalSignOutRef.current?.();
-    } catch {
-      // A Clerk failure must not stop the MediTrack sign-out.
-    }
-
+    // Clear MediTrack state first: Clerk's signOut may do a full-page redirect.
     setToken(null);
     setUser(null);
     setSessionExpired(false);
     if (channelRef.current) channelRef.current.postMessage('logout');
+
+    try {
+      // Ends the Clerk session too (no-op when Clerk is not configured).
+      await externalSignOutRef.current?.();
+    } catch {
+      // A Clerk failure must not undo the MediTrack sign-out.
+    }
   }, []);
 
   const clearSessionExpired = useCallback(() => setSessionExpired(false), []);
