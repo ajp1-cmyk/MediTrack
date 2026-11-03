@@ -113,8 +113,6 @@ In production the server refuses to start without `JWT_SECRET` and `COOKIE_SECRE
    | `JWT_SECRET` | generated in step 2 |
    | `COOKIE_SECRET` | generated in step 2 |
    | `RX_ENCRYPTION_KEY` | 64 hex characters (step 2) |
-| `VITE_CLERK_PUBLISHABLE_KEY` | `pk_test_…` — **build-time** variable, read by Vite (optional, see below) |
-| `CLERK_SECRET_KEY` | `sk_test_…` — **server only** (optional, see below) |
    | `PRESCRIPTION_VALID_DAYS` | `365` |
    | `DAILY_PURCHASE_LIMIT` | `10` (units per UTC day; `0` disables) |
    | `PAYMENT_PROVIDER` | `mock` |
@@ -125,15 +123,14 @@ In production the server refuses to start without `JWT_SECRET` and `COOKIE_SECRE
    `MEDITRACK_SERVERLESS=1` is set automatically by `backend/netlify.js`; do not set it
    yourself. The function returns a **500** that names any missing required variable.
 
-   **Clerk (optional).** Add `VITE_CLERK_PUBLISHABLE_KEY` (`pk_test_…`) as a Netlify
-   **build** variable — Vite inlines it into the bundle, so a redeploy is required after
-   changing it — and `CLERK_SECRET_KEY` (`sk_test_…`) as a normal function variable. Without
-   them the "Continue with Clerk" option stays hidden and `POST /api/auth/clerk` answers
-   **503**. Add `https://<site>.netlify.app` (and `http://localhost:5173` for local work) to
-   the Clerk app's allowed origins. `CLERK_AUTHORIZED_PARTIES` can pin the origins that may
-   present a token, and `CLERK_ALLOW_BACKOFFICE_LOGIN=true` lets a verified Clerk email
-   link to an existing staff/admin account (off by default). Run
-   `cd backend && npm run clerk:check` to validate both keys before redeploying.
+   **Emailed sign-in codes (optional).** The "Email code" tab needs no keys: with the
+   default `MAIL_PROVIDER=console` every code is printed in the function log
+   (*Netlify → Functions → api → logs*), which is enough for a demo. For real delivery set
+   `MAIL_PROVIDER=resend`, `RESEND_API_KEY` and `MAIL_FROM` (a verified Resend sender).
+   `OTP_TTL_MINUTES`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_COOLDOWN_SECONDS` and `OTP_SECRET`
+   have sensible defaults, and `OTP_ALLOW_BACKOFFICE_LOGIN=true` lets staff/admin accounts
+   sign in with a code as well (off by default). Never set `OTP_EXPOSE_CODE` here: the API
+   ignores it in production on purpose, but it must not be relied on.
 
 4. **`CORS_ORIGIN` is optional for the standard deploy.** The API accepts an `Origin` whose
    host matches `X-Forwarded-Host`/`Host`, so the Netlify SPA calling the function on the same
@@ -231,9 +228,10 @@ Browser walkthrough:
    a medicine **with an image** (stored in MongoDB `medicineimages`) → replenish → audit log shows the
    prescription and stock entries.
 7. Refresh `/orders` directly (SPA fallback) and confirm the site is served over HTTPS.
-8. *(Only when Clerk is configured.)* `/login` → **Continue with Clerk** → complete the
-   Clerk flow → you land back signed in, the nav shows the account, and `/orders` works.
-   Then **Log out** and confirm you stay signed out (the Clerk session is ended too).
+8. `/login` → **Email code** tab → enter an address → the six digits appear in the function
+   log (or land in the inbox when Resend is configured) → verifying them signs you in, the
+   nav shows the account, and `/orders` works. Then **Log out** and confirm you stay signed
+   out. (Staff/admin accounts are password-only unless `OTP_ALLOW_BACKOFFICE_LOGIN=true`.)
 
 ---
 

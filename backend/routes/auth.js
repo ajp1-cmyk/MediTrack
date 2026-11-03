@@ -2,6 +2,8 @@
 //
 //   POST /api/auth/register      → customer sign-up; role "admin" needs the invite code
 //   POST /api/auth/login         → { token, user } + httpOnly refresh cookie
+//   POST /api/auth/otp/request   → email a one-time sign-in code
+//   POST /api/auth/otp/verify    → check the code, sign in (creating a customer if new)
 //   POST /api/auth/refresh       → rotate the refresh cookie, return a new access token
 //   POST /api/auth/logout        → revoke the refresh session
 //   GET  /api/auth/me            → the signed-in user
@@ -15,11 +17,16 @@ const express = require('express');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const { signToken, requireAuth, requirePermission } = require('../middleware/auth');
-const { loginLimiter, registerLimiter } = require('../middleware/rateLimit');
+const {
+  loginLimiter,
+  registerLimiter,
+  otpRequestLimiter,
+} = require('../middleware/rateLimit');
 const { rejectFormBody } = require('../middleware/requestGuards');
 const { httpError, asyncHandler } = require('../lib/errors');
 const { recordAudit } = require('../lib/audit');
-const clerk = require('../lib/clerk');
+const otp = require('../lib/otp');
+const mailer = require('../lib/mailer');
 const { isBackOffice } = require('../lib/permissions');
 const {
   readRefreshToken,
@@ -37,6 +44,8 @@ const {
 const router = express.Router();
 
 const MIN_PASSWORD_LENGTH = 8;
+// Same rule as the `email` field of models/User.js.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function readCredentials(body = {}) {
   return {
@@ -44,6 +53,15 @@ function readCredentials(body = {}) {
     email: typeof body.email === 'string' ? body.email.trim().toLowerCase() : '',
     password: typeof body.password === 'string' ? body.password : '',
   };
+}
+
+/** Normalise and validate the `email` field of the sign-in-code routes. */
+function readEmail(body = {}) {
+  const email = otp.normalizeEmail(body.email);
+  if (!EMAIL_PATTERN.test(email)) {
+    throw httpError(400, 'Enter a valid email address');
+  }
+  return email;
 }
 
 /**
@@ -158,73 +176,92 @@ router.post(
   })
 );
 
-// POST /api/auth/clerk — exchange a verified Clerk session for a MediTrack one.
+// POST /api/auth/otp/request — email a one-time sign-in code.
 //
-// The browser signs in with Clerk's UI and posts the Clerk session JWT here. We
-// verify it server-side, map the Clerk user to a local `users` row, then issue
-// the same access token + refresh cookie as the password form, so every other
-// route (roles, carts, orders, prescriptions) keeps working unchanged.
-//
-// Linking rules:
-//   • a known clerkUserId signs straight in
-//   • a verified Clerk email matching an existing *customer* links that account
-//     (the role is never changed)
-//   • staff/admin accounts require CLERK_ALLOW_BACKOFFICE_LOGIN=true, so a Clerk
-//     account can never take over the back office without an explicit opt-in
-//   • anything else creates a new `customer` account
+// Works for known and unknown addresses alike, so the endpoint cannot be used to
+// probe which accounts exist: verifying the code is what creates the account.
+// Two limits apply — per IP + address (this limiter) and a short per-address
+// cooldown inside lib/otp.js.
 router.post(
-  '/clerk',
+  '/otp/request',
+  otpRequestLimiter,
+  rejectFormBody,
+  asyncHandler(async (req, res) => {
+    const email = readEmail(req.body);
+    const settings = otp.config();
+
+    const { code, expiresAt } = await otp.issueCode(email, req);
+
+    try {
+      await mailer.sendOtpEmail({ to: email, code, expiresAt });
+    } catch (err) {
+      // No email left the server, so leave no usable code behind either.
+      await otp.discardCodes(email);
+      throw err;
+    }
+
+    return res.json({
+      success: true,
+      email,
+      expiresAt,
+      resendAfterSeconds: settings.resendCooldownSeconds,
+      expiresInMinutes: settings.ttlMinutes,
+      // Development convenience only (OTP_EXPOSE_CODE=true, never in production):
+      // the SPA shows the code so it can be typed without the server log.
+      ...(settings.exposeCode ? { devCode: code } : {}),
+    });
+  })
+);
+
+// POST /api/auth/otp/verify — check the code and issue a MediTrack session.
+//
+//   • the code is single-use and dies after OTP_MAX_ATTEMPTS wrong guesses
+//     (lib/otp.js), and wrong guesses also count towards the sign-in limiter
+//   • a matching code for an unknown address creates a `customer` account with
+//     `authProvider: "otp"` and no local password
+//   • an existing account is signed in as-is: the role is never changed
+//   • staff/admin accounts stay password-only unless
+//     OTP_ALLOW_BACKOFFICE_LOGIN=true, so a mailbox alone cannot take over the
+//     back office (stock, orders, prescriptions)
+router.post(
+  '/otp/verify',
   loginLimiter,
   rejectFormBody,
   asyncHandler(async (req, res) => {
     const body = req.body || {};
-    const sessionToken = typeof body.token === 'string' ? body.token.trim() : '';
+    const email = readEmail(body);
+    const code = typeof body.code === 'string' ? body.code.replace(/\s+/g, '') : '';
 
-    if (!sessionToken) {
-      throw httpError(400, 'A Clerk session token is required');
-    }
-    if (!clerk.configured()) {
-      throw httpError(503, 'Clerk sign-in is not configured on this server.');
+    if (!new RegExp(`^\\d{${otp.CODE_DIGITS}}$`).test(code)) {
+      throw httpError(400, `Enter the ${otp.CODE_DIGITS}-digit code from the email`);
     }
 
-    const identity = await clerk.resolveClerkIdentity(sessionToken);
+    // Wrong, expired, reused and over-guessed codes all surface as 401/429 here.
+    await otp.consumeCode(email, code);
 
-    let user = await User.findOne({ clerkUserId: identity.clerkUserId });
+    let user = await User.findOne({ email });
     let created = false;
 
     if (!user) {
-      const existing = await User.findOne({ email: identity.email });
-
-      if (existing) {
-        if (existing.clerkUserId && existing.clerkUserId !== identity.clerkUserId) {
-          throw httpError(409, 'This email address is linked to a different Clerk account.');
-        }
-        if (isBackOffice(existing.role) && process.env.CLERK_ALLOW_BACKOFFICE_LOGIN !== 'true') {
-          // A verified email is strong evidence, but back-office access also
-          // guards stock, orders and prescriptions — keep it password-only
-          // unless the owner explicitly opts in.
-          throw httpError(
-            403,
-            'Back-office accounts must sign in with their MediTrack password. ' +
-              'Set CLERK_ALLOW_BACKOFFICE_LOGIN=true to allow Clerk for them.'
-          );
-        }
-
-        // Link the Clerk identity to the existing account without touching its role.
-        existing.clerkUserId = identity.clerkUserId;
-        await existing.save();
-        user = existing;
-      } else {
-        user = new User({
-          name: identity.name,
-          email: identity.email,
-          role: 'customer',
-          authProvider: 'clerk',
-          clerkUserId: identity.clerkUserId,
-        });
-        await user.save();
-        created = true;
-      }
+      const requestedName = typeof body.name === 'string' ? body.name.trim() : '';
+      const fallbackName = email.split('@')[0];
+      user = new User({
+        name: (requestedName || fallbackName || 'Customer').slice(0, 80),
+        email,
+        role: 'customer',
+        authProvider: 'otp',
+      });
+      await user.save();
+      created = true;
+    } else if (isBackOffice(user.role) && process.env.OTP_ALLOW_BACKOFFICE_LOGIN !== 'true') {
+      // Owning the mailbox is strong evidence, but back-office access also guards
+      // stock, orders and prescriptions — keep it password-only unless the owner
+      // explicitly opts in.
+      throw httpError(
+        403,
+        'Back-office accounts must sign in with their MediTrack password. ' +
+          'Set OTP_ALLOW_BACKOFFICE_LOGIN=true to allow emailed codes for them.'
+      );
     }
 
     // Same session mechanism as every other sign-in path.
@@ -234,7 +271,7 @@ router.post(
     await recordAudit({
       req,
       actor: user,
-      action: created ? 'auth.clerk_register' : 'auth.clerk_login',
+      action: created ? 'auth.otp_register' : 'auth.otp_login',
       targetType: 'user',
       targetId: user._id,
       after: { email: user.email, role: user.role },
@@ -244,6 +281,7 @@ router.post(
       token: signToken(user),
       user,
       refreshExpiresAt: expiresAt,
+      created,
     });
   })
 );
@@ -305,11 +343,11 @@ router.patch(
     }
 
     const user = await User.findById(req.user._id).select('+passwordHash');
-    if (user && user.authProvider === 'clerk' && !user.passwordHash) {
-      // Clerk-created accounts have no local password to change.
+    if (user && user.authProvider === 'otp' && !user.passwordHash) {
+      // Accounts created through an emailed code have no local password yet.
       throw httpError(
         400,
-        'This account signs in with Clerk. Change your password in your Clerk account.'
+        'This account signs in with emailed one-time codes, so it has no MediTrack password to change.'
       );
     }
     if (!user || !(await user.verifyPassword(currentPassword))) {

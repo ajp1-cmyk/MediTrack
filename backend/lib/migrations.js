@@ -31,6 +31,30 @@ const MIGRATIONS = [
       return `${result.modifiedCount} medicine row(s) initialised with held=0`;
     },
   },
+  {
+    id: '003-clerk-accounts-to-otp',
+    async run() {
+      // Sign-in moved from Clerk to emailed one-time codes: those accounts have
+      // no local password, so they must keep signing in passwordlessly (the
+      // `otp` provider) instead of becoming unusable. Any stored Clerk id is
+      // dropped because nothing reads it any more. Raw collection updates: the
+      // values are outside the (now narrower) schema enum, so the model would
+      // refuse them.
+      const users = mongoose.connection.db.collection('users');
+      const converted = await users.updateMany(
+        { authProvider: 'clerk' },
+        { $set: { authProvider: 'otp' } }
+      );
+      const unlinked = await users.updateMany(
+        { clerkUserId: { $exists: true } },
+        { $unset: { clerkUserId: '' } }
+      );
+      return (
+        `${converted.modifiedCount} Clerk account(s) moved to emailed codes, ` +
+        `${unlinked.modifiedCount} external id(s) removed`
+      );
+    },
+  },
 ];
 
 async function runMigrations() {

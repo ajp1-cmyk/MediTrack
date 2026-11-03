@@ -6,9 +6,10 @@ catalogue, add medicines to a cart, check out, and pay on a sandbox payment page
 - **Frontend:** React (Vite) + React Router
 - **Backend:** Node.js + Express
 - **Database:** MongoDB via Mongoose — `medicines`, `users`, `carts`, `wishlists`, `orders`,
-  `sessions`, `admininvites`, `medipointsentries`, `auditlogs` and `prescriptions` collections
+  `sessions`, `admininvites`, `medipointsentries`, `auditlogs`, `otpcodes` and `prescriptions`
+  collections
 - **Auth:** JWT (`jsonwebtoken`) with bcrypt-hashed passwords (`bcryptjs`); optional
-  **Clerk** sign-in (email / Google / GitHub) that is exchanged for the same MediTrack session
+  **emailed one-time code** sign-in that issues the same MediTrack session
 - **Cart session:** signed, httpOnly cookie + server-side cart document (`cookie-parser`)
 - **Payments:** provider adapter with a built-in sandbox gateway (`PAYMENT_PROVIDER=mock`)
 - **Image upload:** multer (disk in `backend/uploads/` locally, bytes in MongoDB `medicineimages` on Netlify)
@@ -43,10 +44,11 @@ meditrack/
 │   │   ├── Session.js         # refresh-token sessions (hashed, rotating)
 │   │   ├── AdminInvite.js     # single-use staff/admin invites (hashed)
 │   │   ├── MediPointsEntry.js # append-only MediPoints ledger (one earn per order)
+│   │   ├── OtpCode.js         # emailed sign-in codes (HMAC, expiry, attempts)
 │   │   └── AuditLog.js        # append-only back-office audit trail
 │   ├── middleware/
 │   │   ├── auth.js            # requireAuth, requireRole, requirePermission, JWT signing
-│   │   ├── rateLimit.js       # brute-force limits for login / registration
+│   │   ├── rateLimit.js       # brute-force limits for login / registration / code requests
 │   │   └── requestGuards.js   # reject cross-site form posts
 │   ├── lib/
 │   │   ├── errors.js          # httpError + asyncHandler helpers
@@ -67,7 +69,8 @@ meditrack/
 │   │   ├── prescriptions.js   # AES-256-GCM files, validity + checkout gate (FR-1.4/2.1)
 │   │   ├── purchaseLimit.js   # daily unit allowance + checkout check (NFR-2.2)
 │   │   ├── imageStore.js      # medicine images: disk locally, MongoDB (`medicineimages`) on Netlify
-│   │   ├── clerk.js           # optional Clerk sign-in: verify token + read profile
+│   │   ├── otp.js             # emailed sign-in codes: issue, HMAC, single use, attempt limit
+│   │   ├── mailer.js          # code delivery: console (default) or Resend (fetch)
 │   │   ├── paymentGateway.js  # provider registry + charge()
 │   │   └── providers/
 │   │       └── mockPayment.js # sandbox gateway (deterministic test cards)
@@ -81,7 +84,7 @@ meditrack/
 │   │   ├── migrate-roles.js   # `npm run migrate:roles` — apply pending data migrations
 │   │   └── replenish-inventory.js # `npm run inventory:replenish` — one restock pass
 │   ├── routes/
-│   │   ├── auth.js            # register / login / refresh / logout / sessions / users / clerk
+│   │   ├── auth.js            # register / login / otp / refresh / logout / sessions / users
 │   │   ├── adminAuth.js       # public back-office login + invite acceptance
 │   │   ├── admin.js           # summary / orders / customers / audit / invites / restock
 │   │   ├── medicines.js       # stock CRUD + image upload (staff + admin)
@@ -90,7 +93,7 @@ meditrack/
 │   │   ├── orders.js          # checkout, order history, pay, cancel
 │   │   ├── prescriptions.js   # upload / history / decrypted file (FR-1.4)
 │   │   └── me.js              # customer account extras (MediPoints)
-│   ├── tests/                 # API tests (stock, auth sessions, Clerk sign-in,
+│   ├── tests/                 # API tests (stock, auth sessions, emailed codes,
 │   │                          # admin/roles, cart, holds, payments, inventory,
 │   │                          # MediPoints, wishlist, prescriptions, daily limit)
 │   ├── uploads/               # (created at runtime) uploaded images
@@ -100,18 +103,21 @@ meditrack/
 └── frontend/
     └── src/
         ├── App.jsx                        # router + providers + layout
+        ├── main.jsx                       # entry: fonts + Open Props easings + theme imports
+        ├── App.css                        # component styles (layout, cards, tables, admin)
+        ├── theme.css                      # polish layer, imported after App.css
+        ├── index.css                      # base reset
         ├── context/
         │   ├── AuthContext.jsx            # signed-in user, silent refresh, logout
         │   ├── CartContext.jsx            # cart state + merge-on-login + dialog state
         │   └── WishlistContext.jsx        # account wishlist, empty on sign-out
         ├── lib/
         │   ├── api.js                     # fetch wrapper (memory JWT + refresh) + APIs
-        │   ├── clerk.js                   # VITE_CLERK_PUBLISHABLE_KEY → clerkEnabled flag
         │   └── format.js                  # currency, dates, status labels
         ├── components/
-        │   ├── Navbar.jsx                 # nav + cart/wishlist badges + user chip
-        │   ├── ClerkAuthPanel.jsx         # Clerk <SignIn /> + session exchange (optional)
-        │   ├── ClerkSessionBridge.jsx     # log out of Clerk with MediTrack (optional)
+        │   ├── Navbar.jsx                 # promo strip + nav + cart/wishlist badges + user chip
+        │   ├── Footer.jsx                 # closing band: links, service promises, legal note
+        │   ├── Icon.jsx                   # local SVG icon set (no emoji, inherits currentColor)
         │   ├── ProtectedRoute.jsx         # role-guarded routes
         │   ├── MedicineForm.jsx           # stock entry form
         │   ├── MedicineList.jsx           # stock list + add-to-cart + save-for-later heart
@@ -309,6 +315,24 @@ Open http://localhost:5173 in your browser.
 
 The Vite dev server proxies `/api` and `/uploads` to the backend, so you can call
 the API with relative URLs from the frontend.
+
+#### UI & design system
+
+The interface is styled with plain CSS in three layers, so no component library or
+CSS-in-JS runtime ships to the browser:
+
+| Layer | File | Role |
+| ----- | ---- | ---- |
+| Tokens | `open-props/easings` (npm) | Open Props easing curves (`--ease-out-3`, `--ease-spring-2`) |
+| Type | `@fontsource-variable/inter`, `@fontsource-variable/plus-jakarta-sans` (npm) | Self-hosted variable fonts — no Google Fonts request |
+| Components | `src/App.css` | Layout + every component (cards, tables, admin console, modals) |
+| Polish | `src/theme.css` | Imported last; refines type scale, glass navbar, buttons, cards, forms, footer |
+
+`theme.css` only overrides App.css at equal specificity, so the two files stay
+independent: change a component in `App.css`, and the visual finish (shadows,
+radii, motion, focus rings) still applies. Both are loaded from `src/main.jsx`
+after the font and Open Props imports. Icons are local SVGs (`components/Icon.jsx`),
+not emoji, so they inherit `currentColor` and render identically on every OS.
 
 ## Deploying to Netlify
 
@@ -574,8 +598,9 @@ The `medicineimages` collection holds the image **bytes**, keyed by the file nam
 ```
 
 `GET /uploads/<file>` checks `medicineimages` first, then the legacy Netlify Blobs store,
-then the demo files committed in `backend/uploads/`. Locally the API keeps using the disk
-and `express.static`; on Netlify the same URL is served from MongoDB.
+then the demo files committed in `backend/uploads/`. On Netlify that order is the whole
+route; locally `express.static` serves the disk first and the same lookups handle anything it
+misses, so an image uploaded on the deployed site still resolves in development.
 
 The `prescriptions` collection is separate because a customer can have a history of uploads
 and the bytes must never travel with a catalogue read:
@@ -633,7 +658,8 @@ Rules of thumb for MongoDB:
 | ------ | -------- | ---- | ------ |
 | POST | `/api/auth/register` | `{ name, email, password }` | public → **customer only**; staff/admin require an invite |
 | POST | `/api/auth/login` | `{ email, password }` | public → `{ token, user }` + refresh cookie |
-| POST | `/api/auth/clerk` | `{ token }` (Clerk session JWT) | public → same session as `/login`; `503` when `CLERK_SECRET_KEY` is unset |
+| POST | `/api/auth/otp/request` | `{ email }` | public → emails a 6-digit code (`429` during the per-address cooldown) |
+| POST | `/api/auth/otp/verify` | `{ email, code, name? }` | public → same session as `/login`; creates a `customer` when the address is new |
 | POST | `/api/auth/refresh` | – (httpOnly cookie) | rotate the refresh cookie → new `{ token, user }`; `409` means a concurrent tab won, retry |
 | POST | `/api/auth/logout` | – (httpOnly cookie) | revoke this browser's session and clear the cookie |
 | GET | `/api/auth/me` | – | signed in |
@@ -649,64 +675,67 @@ Rules of thumb for MongoDB:
 > Rate limits are still in memory, so use a shared store when running multiple API
 > instances.
 
-### Clerk sign-in (optional)
+### Emailed one-time codes (optional sign-in)
 
-Clerk replaces only the **sign-in screen**; MediTrack still owns the session, roles and
-permissions. Leave the keys unset and nothing changes — the email + password form stays
-the only option and `/api/auth/clerk` answers `503`.
+`/login` offers two methods: the usual email + password form, and an **Email code**
+tab that mails a 6-digit code. The code replaces only *how the person proves who they
+are* — MediTrack still owns the session, roles and permissions, so carts, orders,
+prescriptions and the back office work exactly as before.
 
-1. Create an application at [dashboard.clerk.com](https://dashboard.clerk.com) and enable
-   the strategies you want (email code/link, Google, GitHub …).
-2. Add your origins to the Clerk app (Home URL / allowed origins):
-   `http://localhost:5173` and `https://<site>.netlify.app`.
-3. Set the two keys:
-
-   | Where | Variable | Value |
-   | ----- | -------- | ----- |
-   | `frontend/.env` (and Netlify **build** env) | `VITE_CLERK_PUBLISHABLE_KEY` | `pk_test_…` |
-   | `backend/.env` (and Netlify **function** env) | `CLERK_SECRET_KEY` | `sk_test_…` |
-
-   `frontend/.env.example` and `backend/.env.example` document the variables. Vite only
-   exposes variables prefixed with `VITE_`, and they are **inlined at build time**, so set
-   `VITE_CLERK_PUBLISHABLE_KEY` before `npm run build` / the Netlify build.
-
-4. Verify both keys before deploying:
-
-   ```bash
-   cd backend && npm run clerk:check
-   ```
-
-   It reads `CLERK_SECRET_KEY` from `backend/.env` and
-   `VITE_CLERK_PUBLISHABLE_KEY` from `frontend/.env.local` (or `.env`), confirms the
-   secret key with Clerk's Backend API, decodes the Frontend API host from the
-   publishable key, and prints the Netlify variables still to set.
+Nothing has to be installed or configured to try it: with the default
+`MAIL_PROVIDER=console` the code is printed in the API log.
 
 How it works:
 
 ```
-/login → "Continue with Clerk" → Clerk's <SignIn /> UI
-      → Clerk session JWT → POST /api/auth/clerk { token }
-      → verifyToken() + users.getUser()            (backend/lib/clerk.js)
-      → find-or-create the `users` row             (routes/auth.js)
-      → MediTrack JWT + httpOnly refresh cookie    (lib/sessions.js)
+/login → "Email code" tab → POST /api/auth/otp/request { email }
+      → 6 digits from crypto.randomInt, stored as HMAC(<email>:<code>)
+      → delivered by lib/mailer.js (console, or Resend with an API key)
+      → POST /api/auth/otp/verify { email, code }
+      → consume the code                (lib/otp.js: single use, attempts, expiry)
+      → find-or-create the `users` row   (routes/auth.js)
+      → MediTrack JWT + httpOnly refresh cookie (lib/sessions.js)
 ```
 
-Account rules (`routes/auth.js`, `lib/clerk.js`):
+Rules (`routes/auth.js`, `lib/otp.js`):
 
-- a known `clerkUserId` signs straight in to its existing account;
-- a **verified** Clerk email matching an existing `customer` links that account without
-  changing its role, and its password login keeps working;
-- unverified Clerk emails are refused (`403`), so nobody can claim an account by typing
-  someone else's address;
+- a code is **single use**, expires after `OTP_TTL_MINUTES` (10) and is destroyed after
+  `OTP_MAX_ATTEMPTS` (5) wrong guesses; only the newest code for an address is live;
+- a second request for the same address inside `OTP_RESEND_COOLDOWN_SECONDS` (30) is
+  refused with `429`, and `/api/auth/otp/request` is also rate limited per IP + email;
+- a code for an **unknown address creates a `customer`** account (`authProvider: "otp"`,
+  no local password); the name defaults to the part before `@` unless one is sent;
+- an existing account is signed in as-is — the role and the password are never touched,
+  so a customer can keep using either method;
 - `staff` / `admin` accounts stay password-only unless you set
-  `CLERK_ALLOW_BACKOFFICE_LOGIN=true`;
-- brand-new Clerk users become `customer` accounts with `authProvider: "clerk"` and no
-  local password, so `PATCH /api/auth/password` explains that Clerk manages it.
+  `OTP_ALLOW_BACKOFFICE_LOGIN=true`, so a mailbox alone cannot reach stock, orders or
+  prescriptions;
+- `PATCH /api/auth/password` explains that a code-only account has no MediTrack password.
 
-Optional hardening: set `CLERK_AUTHORIZED_PARTIES` (comma-separated origins) to reject
-session tokens minted for other origins of the same Clerk instance. Logging out of
-MediTrack also signs out of Clerk (`ClerkSessionBridge`), so the login page does not
-immediately sign you back in.
+Environment (`backend/.env`, see `backend/.env.example`):
+
+| Variable | Default | Purpose |
+| -------- | ------- | ------- |
+| `OTP_TTL_MINUTES` | `10` | how long a code stays valid |
+| `OTP_MAX_ATTEMPTS` | `5` | wrong guesses before the code is destroyed |
+| `OTP_RESEND_COOLDOWN_SECONDS` | `30` | minimum gap between two codes for an address |
+| `OTP_SECRET` | `JWT_SECRET` | HMAC key for the stored code hashes |
+| `OTP_EXPOSE_CODE` | unset | `true` also returns the code in the API reply so the demo needs no mailbox — **ignored when `NODE_ENV=production`** |
+| `OTP_ALLOW_BACKOFFICE_LOGIN` | unset | `true` lets staff/admin sign in with a code too |
+| `MAIL_PROVIDER` | `console` | `console` prints the code in the log; `resend` calls the Resend API |
+| `MAIL_FROM` | `MediTrack <no-reply@meditrack.local>` | sender for the `resend` transport |
+| `RESEND_API_KEY` | unset | required by `MAIL_PROVIDER=resend` |
+
+Local development, zero setup:
+
+```bash
+cd backend && npm run dev      # the code appears in this terminal as
+                               #   [mail] one-time sign-in code → 123456
+```
+
+Add `OTP_EXPOSE_CODE=true` to `backend/.env` to see the code on the sign-in page
+instead. In production keep it unset and either read the function log or configure
+`MAIL_PROVIDER=resend` with `RESEND_API_KEY` and `MAIL_FROM`.
 
 ### Back office
 
@@ -757,9 +786,11 @@ immediately sign you back in.
 The storefront keeps search state in the URL: `/?q=paracetamol` and
 `/?category=Vitamins%20%26%20Supplements` are shareable and survive reloads. Typing is
 debounced (300 ms) and every change queries the API, so the list and the result count always
-reflect the server. Clicking a card's image/title (or **View details**) opens
-`/medicines/:id`, which shows the full description, category, Rx/OTC status, stock, dates and
-refill cycle, with **Add to cart** and **Save for later** actions.
+reflect the server. The landing page pairs a hero search with category chips, a removable
+active-filter row, a live result count and skeleton cards while the catalogue loads. Clicking
+a card's image/title (or **View details**) opens `/medicines/:id`, which shows the full
+description, category, Rx/OTC status, stock, dates and refill cycle, with **Add to cart** and
+**Save for later** actions.
 
 ### Cart
 
@@ -913,12 +944,12 @@ same order without charging again.
 
 | Route | Page | Who |
 | ----- | ---- | --- |
-| `/` | Landing page with the stock list, search box and category filter | everyone |
+| `/` | Landing page: hero search, category chips and the live stock grid | everyone |
 | `/medicines/:id` | Product page: image, description, price, stock, Rx status, add to cart / save | everyone |
 | `/cart` | Cart: quantities, availability warnings, totals | everyone (guest cookie or signed in) |
 | `/wishlist` | Wishlist: saved medicines, move to cart, remove | signed in |
 | `/prescriptions` | Upload a prescription, see verification status and history | signed in |
-| `/login` | Customer sign in / create account | everyone |
+| `/login` | Customer sign in / create account — email & password, or an emailed one-time code | everyone |
 | `/admin/login` | Staff / administrator sign-in | everyone (customers rejected) |
 | `/admin/register` | Accept a single-use invite link (`?invite=…`) | invite holders |
 | `/admin` | Admin dashboard: counters + recent orders | staff / admin |
@@ -973,9 +1004,10 @@ image upload and 404s. `tests/cart-orders.test.js` covers the signed cart cookie
 guest-cart merge, quantity/stock/expiry validation, server-side totals, checkout and stock
 reservation, rollback, card/UPI/net-banking/COD payments, declines and retries, cancellation,
 expiry, ownership checks and order history. `tests/sessions.test.js` covers refresh-token
-rotation, reuse detection and revocation, `tests/clerk-auth.test.js` covers Clerk sign-in
-(missing/unconfigured tokens, new accounts, repeat sign-ins, linking by verified email,
-the back-office opt-in, conflicting links and the password-change guard), and
+rotation, reuse detection and revocation, `tests/otp.test.js` covers emailed sign-in codes
+(the 6-digit email, HMAC-only storage, new-account creation, existing-account sign-in, the
+single-use and attempt limits, expiry, the resend cooldown, refused delivery leaving no live
+code, and the back-office opt-in), and
 `tests/admin.test.js` covers the role split,
 staff stock rights, invite creation/acceptance/expiry, order fulfilment transitions, customer
 stats and the audit log. `tests/inventory.test.js` covers the low-stock watermark, expired
@@ -1004,7 +1036,9 @@ category filter, combining both, regex characters treated literally, the sorted 
 endpoint and the single-product endpoint (including 404s for malformed ids).
 `tests/image-store.test.js` covers MongoDB image storage (byte round-trip, `data` excluded
 from plain queries, replace-in-place, deletion), the serverless `/uploads/:name` route
-(content type, cache header, 404s, traversal) and the bundled demo-file fallback.
+(content type, cache header, 404s, traversal), the bundled demo-file fallback and the local
+mode (disk first, then the same MongoDB lookups, so an upload made on the deployed site still
+resolves in development).
 `tests/serverless-response.test.js` covers the Netlify response encoding: PNG/JPEG/WEBP/PDF
 bodies must be base64-encoded (otherwise `serverless-http` corrupts them), SVG and JSON stay
 text, and the `/.netlify/functions/api` prefix is stripped. `tests/image-upload-serverless.test.js`
@@ -1041,9 +1075,12 @@ JWT_SECRET=<long random value>
 COOKIE_SECRET=<another long random value, different from JWT_SECRET>
 RX_ENCRYPTION_KEY=<64 hex characters>
 PAYMENT_PROVIDER=mock
-# Optional Clerk sign-in (see "Clerk sign-in" above)
-# VITE_CLERK_PUBLISHABLE_KEY=pk_test_...   (Netlify build env — Vite inlines it)
-# CLERK_SECRET_KEY=sk_test_...             (function env — server only)
+# Optional emailed-code sign-in (see "Emailed one-time codes" above). With the
+# default MAIL_PROVIDER=console the code is printed in the function log.
+# OTP_EXPOSE_CODE is ignored in production, so leave it unset there.
+# MAIL_PROVIDER=resend
+# MAIL_FROM=MediTrack <no-reply@your-domain.example>
+# RESEND_API_KEY=re_...
 # CORS_ORIGIN=https://<custom-domain>,https://<branch>--<site>.netlify.app
 ```
 

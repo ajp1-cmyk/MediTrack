@@ -16,10 +16,12 @@ export function setToken(token) {
 }
 
 // Auth endpoints must not trigger the refresh-and-retry loop (a wrong password
-// is a 401 too, and retrying would just hide the real error).
+// or code is a 401 too, and retrying would just hide the real error).
 const NO_RETRY_PATHS = new Set([
   '/api/auth/login',
   '/api/auth/register',
+  '/api/auth/otp/request',
+  '/api/auth/otp/verify',
   '/api/auth/refresh',
   '/api/auth/logout',
 ]);
@@ -186,11 +188,17 @@ export const authApi = {
   me: () => apiFetch('/api/auth/me'),
   // Silent restore of the session on page load.
   refresh: () => refreshAccessToken({ notify: false }),
-  // Exchange a verified Clerk session token for MediTrack's own session.
-  clerkExchange: (token) =>
-    apiFetch('/api/auth/clerk', {
+  // Emailed one-time code: request a code, then exchange it for a session.
+  requestOtp: (email) =>
+    apiFetch('/api/auth/otp/request', {
       method: 'POST',
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ email }),
+      retryOnUnauthorized: false,
+    }),
+  verifyOtp: ({ email, code, name }) =>
+    apiFetch('/api/auth/otp/verify', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, name }),
       retryOnUnauthorized: false,
     }),
   logout: () =>

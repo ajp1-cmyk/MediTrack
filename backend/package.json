@@ -17,11 +17,9 @@
     "migrate:roles": "node scripts/migrate-roles.js",
     "inventory:replenish": "node scripts/replenish-inventory.js",
     "smoke:deploy": "node scripts/smoke-deploy.js",
-    "clerk:check": "node scripts/clerk-check.js",
     "test": "node --test"
   },
   "dependencies": {
-    "@clerk/backend": "^3.26.5",
     "@netlify/blobs": "^11.1.7",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",

@@ -18,8 +18,6 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
   const channelRef = useRef(null);
-  // Lets the Clerk bridge sign the Clerk session out when MediTrack logs out.
-  const externalSignOutRef = useRef(null);
 
   // Restore the session from the refresh cookie on page load.
   useEffect(() => {
@@ -74,56 +72,55 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const login = useCallback(async (email, password) => {
-    const data = await authApi.login(email, password);
+  /**
+   * Store a freshly issued MediTrack session. Every sign-in path (password,
+   * registration, emailed code, staff/admin, invite) ends here, so they share one
+   * place to reset the session state.
+   */
+  const applySession = useCallback((data) => {
     setToken(data.token);
     setUser(data.user);
     setSessionExpired(false);
     return data.user;
   }, []);
 
-  const register = useCallback(async (payload) => {
-    const data = await authApi.register(payload);
-    setToken(data.token);
-    setUser(data.user);
-    setSessionExpired(false);
-    return data.user;
-  }, []);
+  const login = useCallback(
+    async (email, password) => applySession(await authApi.login(email, password)),
+    [applySession]
+  );
+
+  const register = useCallback(
+    async (payload) => applySession(await authApi.register(payload)),
+    [applySession]
+  );
 
   /**
-   * Sign in with Clerk: the panel hands over Clerk's session JWT, the API
-   * verifies it and returns the normal MediTrack session (token + user).
+   * Ask the API to email a one-time code. Resolves with the server's reply
+   * (`expiresAt`, `resendAfterSeconds`, and `devCode` when the API is running with
+   * OTP_EXPOSE_CODE=true) so the sign-in page can show a countdown.
    */
-  const loginWithClerk = useCallback(async (clerkSessionToken) => {
-    const data = await authApi.clerkExchange(clerkSessionToken);
-    setToken(data.token);
-    setUser(data.user);
-    setSessionExpired(false);
-    return data.user;
-  }, []);
+  const requestOtp = useCallback((email) => authApi.requestOtp(email), []);
 
-  /** Called by the Clerk bridge so "Log out" also ends the Clerk session. */
-  const registerExternalSignOut = useCallback((signOutFn) => {
-    externalSignOutRef.current = signOutFn || null;
-  }, []);
+  /**
+   * Trade the emailed code for the normal MediTrack session. The API creates a
+   * `customer` account when the address is new, so this signs up and signs in.
+   */
+  const verifyOtp = useCallback(
+    async (payload) => applySession(await authApi.verifyOtp(payload)),
+    [applySession]
+  );
 
   /** Staff/admin sign-in from /admin/login. */
-  const loginAdmin = useCallback(async (email, password) => {
-    const data = await adminApi.login(email, password);
-    setToken(data.token);
-    setUser(data.user);
-    setSessionExpired(false);
-    return data.user;
-  }, []);
+  const loginAdmin = useCallback(
+    async (email, password) => applySession(await adminApi.login(email, password)),
+    [applySession]
+  );
 
   /** Redeem an invite link from /admin/register. */
-  const acceptAdminInvite = useCallback(async (payload) => {
-    const data = await adminApi.acceptInvite(payload);
-    setToken(data.token);
-    setUser(data.user);
-    setSessionExpired(false);
-    return data.user;
-  }, []);
+  const acceptAdminInvite = useCallback(
+    async (payload) => applySession(await adminApi.acceptInvite(payload)),
+    [applySession]
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -133,18 +130,11 @@ export function AuthProvider({ children }) {
       // Offline / already expired: still clear the local state.
     }
 
-    // Clear MediTrack state first: Clerk's signOut may do a full-page redirect.
     setToken(null);
     setUser(null);
     setSessionExpired(false);
+    // Sign the other tabs out as well.
     if (channelRef.current) channelRef.current.postMessage('logout');
-
-    try {
-      // Ends the Clerk session too (no-op when Clerk is not configured).
-      await externalSignOutRef.current?.();
-    } catch {
-      // A Clerk failure must not undo the MediTrack sign-out.
-    }
   }, []);
 
   const clearSessionExpired = useCallback(() => setSessionExpired(false), []);
@@ -162,8 +152,8 @@ export function AuthProvider({ children }) {
       clearSessionExpired,
       login,
       loginAdmin,
-      loginWithClerk,
-      registerExternalSignOut,
+      requestOtp,
+      verifyOtp,
       register,
       acceptAdminInvite,
       logout,
@@ -179,8 +169,8 @@ export function AuthProvider({ children }) {
       clearSessionExpired,
       login,
       loginAdmin,
-      loginWithClerk,
-      registerExternalSignOut,
+      requestOtp,
+      verifyOtp,
       register,
       acceptAdminInvite,
       logout,
