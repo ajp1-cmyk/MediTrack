@@ -670,6 +670,17 @@ the only option and `/api/auth/clerk` answers `503`.
    exposes variables prefixed with `VITE_`, and they are **inlined at build time**, so set
    `VITE_CLERK_PUBLISHABLE_KEY` before `npm run build` / the Netlify build.
 
+4. Verify both keys before deploying:
+
+   ```bash
+   cd backend && npm run clerk:check
+   ```
+
+   It reads `CLERK_SECRET_KEY` from `backend/.env` and
+   `VITE_CLERK_PUBLISHABLE_KEY` from `frontend/.env.local` (or `.env`), confirms the
+   secret key with Clerk's Backend API, decodes the Frontend API host from the
+   publishable key, and prints the Netlify variables still to set.
+
 How it works:
 
 ```

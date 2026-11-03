@@ -132,7 +132,8 @@ In production the server refuses to start without `JWT_SECRET` and `COOKIE_SECRE
    **503**. Add `https://<site>.netlify.app` (and `http://localhost:5173` for local work) to
    the Clerk app's allowed origins. `CLERK_AUTHORIZED_PARTIES` can pin the origins that may
    present a token, and `CLERK_ALLOW_BACKOFFICE_LOGIN=true` lets a verified Clerk email
-   link to an existing staff/admin account (off by default).
+   link to an existing staff/admin account (off by default). Run
+   `cd backend && npm run clerk:check` to validate both keys before redeploying.
 
 4. **`CORS_ORIGIN` is optional for the standard deploy.** The API accepts an `Origin` whose
    host matches `X-Forwarded-Host`/`Host`, so the Netlify SPA calling the function on the same

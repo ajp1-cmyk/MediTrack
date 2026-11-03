@@ -17,6 +17,7 @@
     "migrate:roles": "node scripts/migrate-roles.js",
     "inventory:replenish": "node scripts/replenish-inventory.js",
     "smoke:deploy": "node scripts/smoke-deploy.js",
+    "clerk:check": "node scripts/clerk-check.js",
     "test": "node --test"
   },
   "dependencies": {
