@@ -15,6 +15,9 @@ process.env.JWT_ACCESS_TTL = '1h';
 process.env.COOKIE_SECRET = 'test-cookie-secret-cart-orders';
 process.env.PAYMENT_MOCK_DELAY_MS = '0';
 process.env.ORDER_RESERVATION_MINUTES = '30';
+// The daily purchase cap is exercised in purchase-limit.test.js; every other
+// suite needs the cap out of the way so its own order counts are predictable.
+process.env.DAILY_PURCHASE_LIMIT = '0';
 
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const { createUser } = require('./support');

@@ -16,10 +16,12 @@ import Payment from './pages/Payment.jsx';
 import OrderConfirmation from './pages/OrderConfirmation.jsx';
 import Orders from './pages/Orders.jsx';
 import Wishlist from './pages/Wishlist.jsx';
+import Prescriptions from './pages/Prescriptions.jsx';
 import AdminLogin from './pages/admin/AdminLogin.jsx';
 import AdminDashboard from './pages/admin/AdminDashboard.jsx';
 import AdminStock from './pages/admin/AdminStock.jsx';
 import AdminOrders from './pages/admin/AdminOrders.jsx';
+import AdminPrescriptions from './pages/admin/AdminPrescriptions.jsx';
 import AdminCustomers from './pages/admin/AdminCustomers.jsx';
 import AdminAudit from './pages/admin/AdminAudit.jsx';
 import AdminInvites from './pages/admin/AdminInvites.jsx';
@@ -60,6 +62,14 @@ function AppShell() {
           element={
             <ProtectedRoute>
               <Wishlist />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/prescriptions"
+          element={
+            <ProtectedRoute>
+              <Prescriptions />
             </ProtectedRoute>
           }
         />
@@ -106,6 +116,7 @@ function AppShell() {
           <Route index element={<AdminDashboard />} />
           <Route path="stock" element={<AdminStock />} />
           <Route path="orders" element={<AdminOrders />} />
+          <Route path="prescriptions" element={<AdminPrescriptions />} />
           <Route path="customers" element={<AdminCustomers />} />
           <Route
             path="invites"

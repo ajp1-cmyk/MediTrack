@@ -15,6 +15,7 @@ const cartRouter = require('./routes/cart');
 const ordersRouter = require('./routes/orders');
 const meRouter = require('./routes/me');
 const wishlistRouter = require('./routes/wishlist');
+const prescriptionsRouter = require('./routes/prescriptions');
 const { getCookieSecret } = require('./lib/cartSession');
 const { runMigrations } = require('./lib/migrations');
 const { inventoryConfig, replenishLowStock, startReplenishSweeper } = require('./lib/inventory');
@@ -75,6 +76,15 @@ app.use(
 app.use(express.json());
 app.use(cookieParser(getCookieSecret()));
 
+// API responses are live data (stock, carts, orders) and several carry
+// Set-Cookie headers. Express' default ETag makes them cacheable, and a
+// reverse proxy in front of the API (e.g. the Netlify rewrite that serves
+// `/api/*`) may then cache them. Be explicit: never store API responses.
+app.use('/api', (_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 // Behind a reverse proxy (Render, Railway, nginx) the secure-cookie decision
 // needs the original protocol, not the proxy's HTTP hop.
 if (process.env.NODE_ENV === 'production') {
@@ -132,6 +142,9 @@ app.use('/api/me', meRouter);
 // Wishlist (save for later) — signed-in accounts only (FR-1.5).
 app.use('/api/wishlist', wishlistRouter);
 
+// Prescriptions (upload, status, decrypted file) — signed-in accounts (FR-1.4).
+app.use('/api/prescriptions', prescriptionsRouter);
+
 
 // Unknown API route.
 app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found' }));
@@ -139,10 +152,19 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found
 // Central error handler: normalises Mongoose / multer / auth errors and cleans
 // up any file that multer already wrote to disk.
 app.use((err, req, res, _next) => {
-  if (req.file) {
-    fs.unlink(req.file.path, () => {});
-    removeUpload(req.file.filename);
-  }
+  // Only disk-backed uploads have a path. Prescription uploads use multer's
+  // memory storage (the bytes go to MongoDB encrypted), so `path` is undefined
+  // and must not reach fs.unlink(). Serverless uploads also live in Netlify
+  // Blobs after persistUpload(), so removeUpload() handles those.
+  const uploads = [
+    ...(req.file ? [req.file] : []),
+    ...(Array.isArray(req.files) ? req.files : []),
+  ];
+  uploads.forEach((file) => {
+    if (!file) return;
+    if (typeof file.path === 'string') fs.unlink(file.path, () => {});
+    removeUpload(file.filename);
+  });
 
   let status = err.status || err.statusCode || 500;
   let message = err.message || 'Something went wrong';
@@ -197,6 +219,13 @@ async function start(port = PORT) {
     console.warn(
       '[warn] COOKIE_SECRET is not set — cart cookies use the insecure development ' +
         'fallback. Set COOKIE_SECRET before deploying.'
+    );
+  }
+  if (!process.env.RX_ENCRYPTION_KEY) {
+    console.warn(
+      '[warn] RX_ENCRYPTION_KEY is not set — prescription files are encrypted with a ' +
+        'key derived from JWT_SECRET. Set a dedicated 32-byte key (64 hex characters) ' +
+        'so rotating JWT_SECRET does not make uploaded prescriptions unreadable.'
     );
   }
 

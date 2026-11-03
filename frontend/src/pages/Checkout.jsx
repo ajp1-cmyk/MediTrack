@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import OrderSummary from '../components/OrderSummary.jsx';
 import HoldCountdown from '../components/HoldCountdown.jsx';
+import PrescriptionNotice from '../components/PrescriptionNotice.jsx';
+import PurchaseLimitNotice from '../components/PurchaseLimitNotice.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { ordersApi } from '../lib/api.js';
@@ -19,7 +21,7 @@ const emptyAddress = {
 
 export default function Checkout() {
   const { user } = useAuth();
-  const { cart, items, totals, loading, refresh } = useCart();
+  const { cart, items, totals, itemCount, loading, refresh } = useCart();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -32,8 +34,22 @@ export default function Checkout() {
 
   const update = (name, value) => setForm((prev) => ({ ...prev, [name]: value }));
 
+  // FR-1.4 / FR-2.1 / NFR-2.2: the server is authoritative; this only prevents
+  // a form that cannot succeed from being submitted.
+  const rxBlocked = Boolean(
+    cart.requiresPrescription && !(cart.prescription && cart.prescription.verified)
+  );
+  const overDailyLimit = Boolean(
+    cart.purchaseLimit &&
+      cart.purchaseLimit.enabled &&
+      itemCount > (cart.purchaseLimit.remaining ?? 0)
+  );
+  const canSubmit = !rxBlocked && !overDailyLimit;
+
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (!canSubmit) return;
+
     setSubmitting(true);
     setError('');
 
@@ -95,6 +111,12 @@ export default function Checkout() {
           are still in stock.
         </p>
       )}
+
+      <PrescriptionNotice
+        prescription={cart.prescription}
+        requiresPrescription={cart.requiresPrescription}
+      />
+      <PurchaseLimitNotice purchaseLimit={cart.purchaseLimit} cartItemCount={itemCount} />
 
       <form className="checkout-grid" onSubmit={handleSubmit}>
         <section className="form-card checkout-form">
@@ -206,9 +228,18 @@ export default function Checkout() {
 
           {error && <p className="error">{error}</p>}
 
-          <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
+          <button
+            type="submit"
+            className="btn btn-primary btn-block"
+            disabled={submitting || !canSubmit}
+          >
             {submitting ? 'Placing order…' : 'Place order & continue to payment'}
           </button>
+          {!canSubmit && (
+            <p className="summary-note">
+              Resolve the prescription or daily-limit notice above before placing the order.
+            </p>
+          )}
           <p className="summary-note">
             Stock is reserved for 30 minutes while you pay. Nothing is charged on this page.
           </p>

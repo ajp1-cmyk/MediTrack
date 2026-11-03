@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import QuantityStepper from '../components/QuantityStepper.jsx';
 import OrderSummary from '../components/OrderSummary.jsx';
 import HoldCountdown from '../components/HoldCountdown.jsx';
+import PrescriptionNotice from '../components/PrescriptionNotice.jsx';
+import PurchaseLimitNotice from '../components/PurchaseLimitNotice.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { formatCurrency } from '../lib/format.js';
@@ -68,6 +70,18 @@ export default function Cart() {
     }
   };
 
+  // FR-1.4 / FR-2.1 / NFR-2.2: mirror the server rules so the button explains
+  // itself instead of failing after the form is filled in.
+  const rxBlocked = Boolean(
+    cart.requiresPrescription && !(cart.prescription && cart.prescription.verified)
+  );
+  const overDailyLimit = Boolean(
+    cart.purchaseLimit &&
+      cart.purchaseLimit.enabled &&
+      itemCount > (cart.purchaseLimit.remaining ?? 0)
+  );
+  const canCheckout = !hasIssues && itemCount > 0 && !rxBlocked && !overDailyLimit;
+
   if (loading) {
     return (
       <main className="page">
@@ -118,6 +132,12 @@ export default function Cart() {
         </p>
       )}
 
+      <PrescriptionNotice
+        prescription={cart.prescription}
+        requiresPrescription={cart.requiresPrescription}
+      />
+      <PurchaseLimitNotice purchaseLimit={cart.purchaseLimit} cartItemCount={itemCount} />
+
       <div className="cart-layout">
         <section className="cart-list">
           {items.map((item) => (
@@ -137,7 +157,14 @@ export default function Cart() {
 
               <div className="cart-row-main">
                 <div className="cart-row-head">
-                  <h3>{item.name}</h3>
+                  <h3>
+                    {item.name}
+                    {item.prescriptionRequired && (
+                      <span className="badge badge-blue rx-badge" title="Prescription required">
+                        Rx
+                      </span>
+                    )}
+                  </h3>
                   <span className="cart-row-price">{formatCurrency(item.price)} each</span>
                 </div>
 
@@ -211,11 +238,21 @@ export default function Cart() {
               Fix or remove the highlighted items before checking out.
             </p>
           )}
+          {rxBlocked && (
+            <p className="summary-note">
+              A verified prescription is required for the Rx items in your cart.
+            </p>
+          )}
+          {overDailyLimit && (
+            <p className="summary-note">
+              Reduce the quantity to stay within today’s purchase limit.
+            </p>
+          )}
           <button
             type="button"
             className="btn btn-primary btn-block"
             onClick={goToCheckout}
-            disabled={hasIssues || itemCount === 0}
+            disabled={!canCheckout}
           >
             Proceed to checkout
           </button>

@@ -71,6 +71,7 @@ async function main() {
     'sessions',
     'admininvites',
     'auditlogs',
+    'prescriptions',
   ]) {
     const count = await connection.db.collection(name).countDocuments();
     console.log(`   • ${name.padEnd(12)} : ${count} document${count === 1 ? '' : 's'}`);
@@ -88,6 +89,7 @@ async function main() {
   await require('../models/AdminInvite').createIndexes();
   await require('../models/MediPointsEntry').createIndexes();
   await require('../models/AuditLog').createIndexes();
+  await require('../models/Prescription').createIndexes();
   console.log('✅ indexes     : ensured');
 
   await mongoose.disconnect();

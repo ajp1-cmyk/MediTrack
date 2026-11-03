@@ -12,6 +12,8 @@ const {
   restoreHold,
   heldQuantity,
 } = require('./cartHolds');
+const { prescriptionForCheckout } = require('./prescriptions');
+const { assertWithinDailyLimit } = require('./purchaseLimit');
 
 const DEFAULT_RESERVATION_MINUTES = 30;
 
@@ -109,6 +111,13 @@ async function createOrderFromCart({ cart, user, shippingAddress, now = new Date
     throw httpError(409, `Your cart needs attention: ${problems.join(' ')}`);
   }
 
+  // FR-2.1: prescription-only lines need one verified, still-valid prescription.
+  // Checked before any counter moves, so a blocked checkout changes nothing.
+  const prescription = await prescriptionForCheckout({ plans, user, now });
+
+  // Fair-use cap: at most DAILY_PURCHASE_LIMIT units per customer per day.
+  await assertWithinDailyLimit({ user, cart, now });
+
   // Convert each hold, or reserve from the shelf when the hold has lapsed. One
   // conditional update per line; compensated below if a later line fails.
   const moves = [];
@@ -179,6 +188,9 @@ async function createOrderFromCart({ cart, user, shippingAddress, now = new Date
         status: 'pending_payment',
         payment: { provider, method: null, status: 'pending' },
         expiresAt,
+        // Snapshot of the prescription that unlocked the Rx-only lines.
+        prescription: prescription ? prescription._id : null,
+        prescriptionValidUntil: prescription ? prescription.validUntil : null,
       });
       break;
     } catch (err) {

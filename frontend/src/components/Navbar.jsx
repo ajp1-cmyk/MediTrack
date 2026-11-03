@@ -63,6 +63,15 @@ export default function Navbar() {
           </NavLink>
         )}
 
+        {user && (
+          <NavLink
+            to="/prescriptions"
+            className={({ isActive }) => `btn btn-ghost${isActive ? ' active' : ''}`}
+          >
+            Prescriptions
+          </NavLink>
+        )}
+
         <NavLink
           to="/cart"
           className={({ isActive }) => `btn btn-ghost cart-link${isActive ? ' active' : ''}`}

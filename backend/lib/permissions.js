@@ -12,6 +12,8 @@ const ROLE_PERMISSIONS = {
     'orders:read:all',
     'orders:write',
     'customers:read',
+    // Phase D: review uploaded prescriptions (FR-2.1).
+    'prescriptions:verify',
   ],
   admin: [
     'catalog:read',
@@ -19,6 +21,7 @@ const ROLE_PERMISSIONS = {
     'orders:read:all',
     'orders:write',
     'customers:read',
+    'prescriptions:verify',
     'users:manage',
     'invites:manage',
     'audit:read',

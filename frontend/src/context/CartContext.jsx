@@ -28,6 +28,10 @@ const EMPTY_CART = {
   hasExpiredHolds: false,
   holdExpiresAt: null,
   holdSecondsLeft: 0,
+  // FR-1.4 / FR-2.1 / NFR-2.2 (Phase D): null/empty for a guest cart.
+  requiresPrescription: false,
+  prescription: null,
+  purchaseLimit: null,
   updatedAt: null,
 };
 

@@ -88,6 +88,15 @@ export default function MedicineList({ medicines }) {
               )}
               <div className="medicine-body">
                 <h3>{m.name}</h3>
+                {(m.category || m.prescriptionRequired) && (
+                  <div className="badge-row">
+                    {m.category && <span className="badge badge-gray">{m.category}</span>}
+                    {m.prescriptionRequired && (
+                      <span className="badge badge-blue">Rx required</span>
+                    )}
+                  </div>
+                )}
+                {m.description && <p className="medicine-description">{m.description}</p>}
                 <p><span>MFD:</span> {m.mfd}</p>
                 <p><span>EXP:</span> {m.exp}</p>
                 <p><span>Price:</span> {formatCurrency(m.price)}</p>

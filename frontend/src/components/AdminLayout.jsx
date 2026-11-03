@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { to: '/admin', end: true, label: 'Dashboard' },
   { to: '/admin/stock', label: 'Stock', permission: 'catalog:write' },
   { to: '/admin/orders', label: 'Orders', permission: 'orders:read:all' },
+  { to: '/admin/prescriptions', label: 'Prescriptions', permission: 'prescriptions:verify' },
   { to: '/admin/customers', label: 'Customers', permission: 'customers:read' },
   { to: '/admin/invites', label: 'Invites', permission: 'invites:manage' },
   { to: '/admin/audit', label: 'Audit log', permission: 'audit:read' },

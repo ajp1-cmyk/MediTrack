@@ -1,5 +1,8 @@
 node_modules/
-uploads/
+# Runtime uploads stay out of git, except the demo product images created by
+# `npm run seed:data` (they are part of the demo catalogue).
+uploads/*
+!uploads/seed-*.svg
 *.db
 .env
 .mongo-data/

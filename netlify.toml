@@ -5,6 +5,11 @@
   publish = "frontend/dist"
   functions = "netlify/functions"
 
+# The demo product images live in backend/uploads and are committed to the repo.
+# Bundle them so the function can serve them even when no Blob exists yet.
+[functions]
+  included_files = ["backend/uploads/**"]
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/api/:splat"

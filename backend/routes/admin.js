@@ -6,6 +6,9 @@
 //   GET    /api/admin/orders/:id         one order
 //   PATCH  /api/admin/orders/:id/status  fulfilment transition
 //   GET    /api/admin/customers          customer list + order stats
+//   GET    /api/admin/prescriptions      verification queue / history
+//   GET    /api/admin/prescriptions/:id/file  decrypted file (verifier)
+//   POST   /api/admin/prescriptions/:id/verify  approve or reject
 //   GET    /api/admin/audit              audit log (admin only)
 //   POST   /api/admin/inventory/replenish  restock everything at/below the watermark
 //   POST   /api/admin/invites            create an admin/staff invite (admin)
@@ -16,12 +19,18 @@ const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Medicine = require('../models/Medicine');
+const Prescription = require('../models/Prescription');
 const { INVITE_ROLES } = require('../models/AdminInvite');
 const { requireAuth, requirePermission } = require('../middleware/auth');
 const { httpError, asyncHandler } = require('../lib/errors');
 const { recordAudit, listAudit } = require('../lib/audit');
 const { restoreStock } = require('../lib/orderService');
 const { inventoryConfig, replenishLowStock } = require('../lib/inventory');
+const {
+  verifyPrescription,
+  loadPrescriptionFile,
+  sendPrescriptionFile,
+} = require('../lib/prescriptions');
 const {
   createInvite,
   listInvites,
@@ -261,6 +270,88 @@ router.get(
     });
 
     res.json({ customers: rows, ...pageResult(rows, total, paging) });
+  })
+);
+
+// GET /api/admin/prescriptions?status=pending|verified|rejected|superseded|all
+// The verification queue (FR-2.1): pending uploads oldest first, history newest
+// first. The encrypted bytes are never included; a verifier opens the file
+// through the /file route.
+router.get(
+  '/prescriptions',
+  requirePermission('prescriptions:verify'),
+  asyncHandler(async (req, res) => {
+    const status = String(req.query.status || '').trim();
+    const filter = status && status !== 'all' ? { status } : {};
+    const paging = pagination(req.query);
+
+    const [prescriptions, total] = await Promise.all([
+      Prescription.find(filter)
+        .populate('user', 'name email')
+        .populate('verifiedBy', 'name email')
+        .sort({ created_at: status === 'pending' ? 1 : -1 })
+        .skip(paging.skip)
+        .limit(paging.limit),
+      Prescription.countDocuments(filter),
+    ]);
+
+    res.json({
+      prescriptions,
+      pendingCount: await Prescription.countDocuments({ status: 'pending' }),
+      ...pageResult(prescriptions, total, paging),
+    });
+  })
+);
+
+// GET /api/admin/prescriptions/:id/file — decrypted bytes for a verifier.
+router.get(
+  '/prescriptions/:id/file',
+  requirePermission('prescriptions:verify'),
+  asyncHandler(async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      throw httpError(404, 'Prescription not found');
+    }
+
+    const file = await loadPrescriptionFile({ id: req.params.id, viewer: req.user });
+    sendPrescriptionFile(res, file);
+  })
+);
+
+// POST /api/admin/prescriptions/:id/verify — { approved: true } or
+// { approved: false, reason: '...' }. Approving sets the validity window and
+// supersedes the customer's previous verified prescription.
+router.post(
+  '/prescriptions/:id/verify',
+  requirePermission('prescriptions:verify'),
+  asyncHandler(async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      throw httpError(404, 'Prescription not found');
+    }
+
+    const body = req.body || {};
+    const approved = body.approved === true || body.status === 'verified';
+    const prescription = await verifyPrescription({
+      id: req.params.id,
+      verifier: req.user,
+      approved,
+      reason: body.reason,
+    });
+
+    await recordAudit({
+      req,
+      action: approved ? 'prescription.verify' : 'prescription.reject',
+      targetType: 'prescription',
+      targetId: prescription._id,
+      before: { status: 'pending' },
+      after: {
+        status: prescription.status,
+        userId: String(prescription.user),
+        validUntil: prescription.validUntil,
+        reason: prescription.rejectionReason,
+      },
+    });
+
+    res.json(prescription);
   })
 );
 

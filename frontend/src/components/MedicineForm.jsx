@@ -3,6 +3,8 @@ import { apiFetch } from '../lib/api.js';
 
 const emptyForm = {
   name: '',
+  category: '',
+  description: '',
   mfd: '',
   exp: '',
   price: '',
@@ -30,6 +32,8 @@ export default function MedicineForm({ onCreated }) {
     try {
       const data = new FormData();
       data.append('name', form.name);
+      data.append('category', form.category);
+      data.append('description', form.description);
       data.append('mfd', form.mfd);
       data.append('exp', form.exp);
       data.append('price', form.price);
@@ -64,6 +68,30 @@ export default function MedicineForm({ onCreated }) {
           onChange={(e) => update('name', e.target.value)}
           placeholder="e.g. Dettol Liquid"
           required
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor="category">Category</label>
+        <input
+          id="category"
+          type="text"
+          value={form.category}
+          onChange={(e) => update('category', e.target.value)}
+          placeholder="e.g. Pain Relief & Fever"
+          maxLength={40}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor="description">Description</label>
+        <textarea
+          id="description"
+          rows={3}
+          value={form.description}
+          onChange={(e) => update('description', e.target.value)}
+          placeholder="A short line shown on the catalogue card."
+          maxLength={500}
         />
       </div>
 

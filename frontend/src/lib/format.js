@@ -51,3 +51,18 @@ export const PAYMENT_STATUS_LABELS = {
 export function orderStatusLabel(status) {
   return ORDER_STATUS_LABELS[status] || status;
 }
+
+// Customer-facing prescription states (FR-1.4 / FR-2.1). `none` and `expired`
+// are derived states from the API; the rest are stored document statuses.
+export const PRESCRIPTION_STATUS_LABELS = {
+  none: 'No prescription on file',
+  pending: 'Awaiting verification',
+  verified: 'Verified',
+  rejected: 'Rejected',
+  expired: 'Expired',
+  superseded: 'Superseded',
+};
+
+export function prescriptionStatusLabel(status) {
+  return PRESCRIPTION_STATUS_LABELS[status] || status;
+}

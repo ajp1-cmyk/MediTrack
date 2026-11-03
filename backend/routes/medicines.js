@@ -43,7 +43,7 @@ const upload = multer({
 });
 
 // Fields a client may change after creation.
-const UPDATABLE_FIELDS = ['name', 'mfd', 'exp', 'price', 'stock'];
+const UPDATABLE_FIELDS = ['name', 'mfd', 'exp', 'price', 'stock', 'category', 'description'];
 // Every field PATCH /api/medicines/:id understands (used in the error message).
 const PATCHABLE_FIELDS = [...UPDATABLE_FIELDS, 'prescriptionRequired', 'refillDays', 'image'];
 
@@ -78,6 +78,8 @@ function medicineSnapshot(medicine) {
     stock: medicine.stock,
     prescriptionRequired: medicine.prescriptionRequired,
     refillDays: medicine.refillDays,
+    category: medicine.category,
+    description: medicine.description,
     image: medicine.image,
   };
 }
@@ -143,6 +145,8 @@ router.post(
       stock: stockNum,
       prescriptionRequired: parseBoolean(req.body.prescriptionRequired),
       ...(refillDays === undefined ? {} : { refillDays }),
+      category: String(req.body.category || '').trim(),
+      description: String(req.body.description || '').trim(),
       image: req.file ? req.file.filename : null,
       createdBy: req.user._id,
     });

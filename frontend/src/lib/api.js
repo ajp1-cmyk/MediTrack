@@ -127,6 +127,48 @@ export async function apiFetch(path, options = {}) {
   return data;
 }
 
+/**
+ * fetch() for binary responses (prescription files) with the same access token,
+ * credentials and one-shot refresh-and-retry as `apiFetch`.
+ * Resolves to a Blob.
+ */
+export async function apiFetchBlob(path) {
+  let res = await sendRequest(path);
+
+  if (res.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) res = await sendRequest(path);
+  }
+
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const data = await res.json();
+      if (data && data.error) message = data.error;
+    } catch {
+      // Binary or empty error body: keep the generic message.
+    }
+    const error = new Error(message);
+    error.status = res.status;
+    throw error;
+  }
+
+  return res.blob();
+}
+
+/** Save a Blob (or open it in a new tab) under a sensible file name. */
+export function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename || 'download';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Give the browser a moment to start the download before releasing the URL.
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
 /** Convenience helpers used by the pages. */
 export const authApi = {
   login: (email, password) =>
@@ -213,6 +255,14 @@ export const adminApi = {
       method: 'POST',
       body: JSON.stringify({}),
     }),
+  // FR-2.1: prescription verification queue.
+  prescriptions: (params) => apiFetch(`/api/admin/prescriptions${queryString(params)}`),
+  prescriptionFile: (id) => apiFetchBlob(`/api/admin/prescriptions/${id}/file`),
+  verifyPrescription: (id, payload) =>
+    apiFetch(`/api/admin/prescriptions/${id}/verify`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 };
 
 
@@ -279,5 +329,16 @@ export const ordersApi = {
 /** Customer account extras (MediPoints today, refill reminders next). */
 export const accountApi = {
   medipoints: () => apiFetch('/api/me/medipoints'),
+};
+
+/** Prescription uploads (FR-1.4 / FR-2.1). Files never get a public URL. */
+export const prescriptionsApi = {
+  list: () => apiFetch('/api/prescriptions'),
+  upload: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiFetch('/api/prescriptions', { method: 'POST', body: form });
+  },
+  file: (id) => apiFetchBlob(`/api/prescriptions/${id}/file`),
 };
 

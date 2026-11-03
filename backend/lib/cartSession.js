@@ -20,6 +20,8 @@ const {
   heldQuantity,
 } = require('./cartHolds');
 const { httpError } = require('./errors');
+const { prescriptionStateFor } = require('./prescriptions');
+const { purchaseLimitSummary } = require('./purchaseLimit');
 
 const COOKIE_NAME = 'mt_cart';
 const COOKIE_PATH = '/api';
@@ -426,6 +428,10 @@ async function serializeCart(cart, { now = new Date() } = {}) {
       hasExpiredHolds: false,
       holdExpiresAt: null,
       holdSecondsLeft: 0,
+      // Phase D: Rx status and the daily allowance (null for an empty cart).
+      requiresPrescription: false,
+      prescription: null,
+      purchaseLimit: null,
       updatedAt: cart ? cart.updated_at : null,
     };
   }
@@ -457,6 +463,7 @@ async function serializeCart(cart, { now = new Date() } = {}) {
         heldUntil: null,
         holdSecondsLeft: 0,
         holdExpired: false,
+        prescriptionRequired: false,
       };
     }
 
@@ -504,10 +511,22 @@ async function serializeCart(cart, { now = new Date() } = {}) {
       // True when the line is in the cart but is not holding stock any more, so
       // the customer is offered a "refresh hold" action instead of losing it.
       holdExpired: !holdActive,
+      // FR-1.4: shown as an Rx badge in the cart and at checkout.
+      prescriptionRequired: Boolean(medicine.prescriptionRequired),
     };
   });
 
   const totals = computeTotals(lines);
+
+  // Phase D: the cart-level Rx flag and the customer's prescription status, plus
+  // the remaining daily allowance (null for guests, who cannot check out).
+  const requiresPrescription = items.some((item) => item.prescriptionRequired);
+  const [prescription, purchaseLimit] = cart.user
+    ? await Promise.all([
+        prescriptionStateFor(cart.user, now),
+        purchaseLimitSummary(cart.user, now),
+      ])
+    : [null, null];
 
   // Cart-level hold summary (NFR-2.2): the earliest deadline is the one that
   // matters, because losing it releases that line's units first.
@@ -528,6 +547,11 @@ async function serializeCart(cart, { now = new Date() } = {}) {
     holdSecondsLeft: holdExpiresAt
       ? Math.max(0, Math.ceil((holdExpiresAt.getTime() - now.getTime()) / 1000))
       : 0,
+    // FR-1.4 / FR-2.1 / NFR-2.2: what the checkout page needs to explain why
+    // the order can or cannot be placed.
+    requiresPrescription,
+    prescription,
+    purchaseLimit,
     updatedAt: cart.updated_at,
   };
 }

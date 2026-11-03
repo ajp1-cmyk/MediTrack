@@ -73,6 +73,20 @@ const medicineSchema = new mongoose.Schema(
         message: 'Refill cycle must be a whole number of days',
       },
     },
+    // Storefront grouping ("Pain Relief & Fever", "Vitamins & Supplements", …).
+    category: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: [40, 'Category cannot be longer than 40 characters'],
+    },
+    // Short product description shown on the catalogue card.
+    description: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: [500, 'Description cannot be longer than 500 characters'],
+    },
     image: {
       type: String,
       default: null, // uploaded image filename inside backend/uploads

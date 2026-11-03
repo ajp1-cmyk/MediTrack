@@ -147,6 +147,16 @@ const orderSchema = new mongoose.Schema(
     payment: { type: paymentSchema, default: () => ({}) },
     // Pending orders hold their stock only until this moment.
     expiresAt: { type: Date, default: null },
+    // Phase D (FR-1.4 / FR-2.1): the verified prescription that allowed the
+    // prescription-only items in this order. Both the reference and its validity
+    // are snapshotted, so the receipt stays truthful after the prescription
+    // expires or is superseded by a newer upload.
+    prescription: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Prescription',
+      default: null,
+    },
+    prescriptionValidUntil: { type: Date, default: null },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

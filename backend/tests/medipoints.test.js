@@ -13,6 +13,8 @@ process.env.JWT_ACCESS_TTL = '1h';
 process.env.COOKIE_SECRET = 'test-cookie-secret-medipoints';
 process.env.PAYMENT_MOCK_DELAY_MS = '0';
 process.env.INVENTORY_AUTO_REPLENISH = 'off';
+// Keep the daily purchase cap out of these assertions.
+process.env.DAILY_PURCHASE_LIMIT = '0';
 delete process.env.MEDIPOINTS_PER_100;
 
 const { MongoMemoryServer } = require('mongodb-memory-server');
