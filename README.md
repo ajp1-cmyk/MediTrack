@@ -937,6 +937,9 @@ endpoint and the single-product endpoint (including 404s for malformed ids).
 `tests/image-store.test.js` covers MongoDB image storage (byte round-trip, `data` excluded
 from plain queries, replace-in-place, deletion), the serverless `/uploads/:name` route
 (content type, cache header, 404s, traversal) and the bundled demo-file fallback.
+`tests/serverless-response.test.js` covers the Netlify response encoding: PNG/JPEG/WEBP/PDF
+bodies must be base64-encoded (otherwise `serverless-http` corrupts them), SVG and JSON stay
+text, and the `/.netlify/functions/api` prefix is stripped.
 **No MongoDB installation is required to run it.**
 
 ## Deployment

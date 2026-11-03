@@ -15,13 +15,22 @@ const REQUIRED_ENV = ['MONGODB_URI', 'JWT_SECRET', 'COOKIE_SECRET'];
 
 // Netlify may hand the function either the public path (/api/...) or the
 // rewritten one (/.netlify/functions/api/api/...); Express expects the former.
-const handler = serverless(app, {
+//
+// `binary` matters: serverless-http only base64-encodes responses whose
+// Content-Type matches this list. Without it every response is decoded as UTF-8,
+// which corrupts uploaded PNG/JPEG/WEBP images and prescription files
+// (0x89 → EF BF BD) even though the bytes in MongoDB are correct. SVGs and JSON
+// are plain text and were unaffected.
+const SERVERLESS_OPTIONS = {
+  binary: ['image/*', 'application/pdf', 'application/octet-stream'],
   request(req) {
     if (req.url.startsWith(FUNCTION_PREFIX)) {
       req.url = req.url.slice(FUNCTION_PREFIX.length) || '/';
     }
   },
-});
+};
+
+const handler = serverless(app, SERVERLESS_OPTIONS);
 
 // Connect once per warm instance; a failed attempt is retried on the next request.
 let ready = null;
@@ -69,3 +78,7 @@ exports.handler = async (event, context) => {
   context.callbackWaitsForEmptyEventLoop = false;
   return handler(event, context);
 };
+
+// Exposed for tests: asserts binary responses are base64-encoded (see
+// tests/serverless-response.test.js).
+exports.SERVERLESS_OPTIONS = SERVERLESS_OPTIONS;

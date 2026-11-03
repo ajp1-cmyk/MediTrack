@@ -232,6 +232,7 @@ Browser walkthrough:
 | First request after idle is slow / a timed-out function | Netlify starts cold functions on demand; retry once. Keep frequently used functions warm if the demo needs instant responses. |
 | `413` or a dropped upload | The function request body is limited to ~6 MB. Prescription uploads are capped at 5 MB and medicine images at 5 MB; downsize the file. |
 | `/uploads/<file>` returns 404 | The image is not in `medicineimages`, not in Netlify Blobs and not in the bundled `backend/uploads/`. Re-run `MONGODB_URI='<atlas uri>' npm run seed:data` to mirror the demo SVGs, or re-upload the image from `/admin/stock`. |
+| An uploaded PNG/JPEG/WEBP looks corrupted (grey box, `0x89` shown as `EF BF BD`) | `serverless-http` is UTF-8 decoding a binary response because its `binary` option is missing. Keep `SERVERLESS_OPTIONS.binary` in `backend/netlify.js`; `tests/serverless-response.test.js` guards it. |
 | Catalogue shows stale stock | A cache stored a GET. The API sets `Cache-Control: no-store` on `/api/*` (`backend/server.js`); redeploy if that middleware is missing. |
 | Cookies not stored | Serving over plain HTTP, or `NODE_ENV` is not `production` (cookies are `Secure` only in production). |
 | 404 when refreshing `/orders` | The SPA fallback rule is missing or is not last in `netlify.toml`. |
