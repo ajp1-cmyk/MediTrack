@@ -367,9 +367,11 @@ deploy, create the first admin by running `npm run seed:admin` locally with the 
   Raw invite tokens are returned once and only their SHA-256 hash is stored.
 - **Demo catalogue:** `npm run seed:data` (safe to re-run) fills the store with 30 products
   across 7 categories, each with a short description and a generated SVG image
-  (`backend/uploads/seed-*.svg`). Existing product names are matched case-insensitively and
-  enriched, never overwritten. `npm run seed:demo` is the smaller, inventory-focused seed used
-  by the deployment runbook.
+  (`backend/uploads/seed-*.svg`) whose illustration matches the dosage form (tablet strip,
+  capsule, syrup bottle, tube, spray, sachet, insulin pen, jar or liquid bottle). Existing
+  product names are matched case-insensitively and enriched, never overwritten. After editing
+  the artwork, `node scripts/data.js --refresh-images` redraws the committed SVGs in place.
+  `npm run seed:demo` is the smaller, inventory-focused seed used by the deployment runbook.
 - Roles are re-read from the database on each request, so a role change takes effect on
   the next API call. Self-demotion is rejected, and the last administrator cannot be
   demoted.

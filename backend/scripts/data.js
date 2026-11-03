@@ -63,55 +63,208 @@ function escapeRegex(value) {
 /** Split a product name into at most two lines that fit the image. */
 function splitLabel(value) {
   const text = String(value || 'Medicine').trim();
-  if (text.length <= 19) return [text, ''];
+  if (text.length <= 17) return [text, ''];
   const words = text.split(/\s+/);
   let first = '';
   let index = 0;
-  while (index < words.length && `${first} ${words[index]}`.trim().length <= 19) {
+  while (index < words.length && `${first} ${words[index]}`.trim().length <= 17) {
     first = `${first} ${words[index]}`.trim();
     index += 1;
   }
   const second = words.slice(index).join(' ');
-  return [first || text.slice(0, 19), second];
+  return [first || text.slice(0, 17), second];
+}
+
+// Which illustration each seeded product gets. A product may override this with
+// its own `form` property; the map keeps the 30 data rows terse.
+const FORMS = {
+  'Paracetamol 500mg': 'tablet',
+  'Ibuprofen 400mg': 'tablet',
+  'Diclofenac Gel 30g': 'tube',
+  'Aspirin 75mg': 'tablet',
+  'Naproxen 250mg': 'tablet',
+  'Cetirizine 10mg': 'tablet',
+  'Levocetirizine 5mg': 'tablet',
+  'Dextromethorphan Syrup 100ml': 'syrup',
+  'Saline Nasal Spray 20ml': 'spray',
+  'Vitamin D3 60K': 'sachet',
+  'Vitamin C 500mg': 'tablet',
+  'Multivitamin Daily': 'jar',
+  'Iron + Folic Acid': 'tablet',
+  'Zinc 50mg': 'tablet',
+  'Metformin 500mg': 'tablet',
+  'Glimepiride 2mg': 'tablet',
+  'Insulin Glargine 100IU/ml': 'pen',
+  'Amlodipine 5mg': 'tablet',
+  'Telmisartan 40mg': 'tablet',
+  'Atorvastatin 10mg': 'tablet',
+  'Clopidogrel 75mg': 'tablet',
+  'Amoxicillin 500mg': 'capsule',
+  'Azithromycin 250mg': 'tablet',
+  'Cefixime 200mg': 'capsule',
+  'Fluconazole 150mg': 'capsule',
+  'Metronidazole 400mg': 'tablet',
+  'Pantoprazole 40mg': 'capsule',
+  'ORS Powder Sachet': 'sachet',
+  'Isabgol Husk 100g': 'jar',
+  'Dettol Liquid': 'liquid',
+};
+
+/** Illustrations for devices and containers (returns null if unknown). */
+function packArtFor(form, variety) {
+  const accent = variety.from;
+  const dark = variety.to;
+  const font = 'Arial, Helvetica, sans-serif';
+
+  switch (form) {
+    case 'pen':
+      return `<g transform="translate(118 145) rotate(38)">
+        <rect x="-18" y="-108" width="36" height="216" rx="18" fill="#ffffff" opacity="0.96"/>
+        <rect x="-18" y="-108" width="36" height="56" rx="18" fill="${dark}"/>
+        <rect x="-18" y="40" width="36" height="68" rx="18" fill="${accent}" opacity="0.92"/>
+        <rect x="-22" y="10" width="44" height="9" rx="4" fill="${dark}" opacity="0.5"/>
+        <rect x="-22" y="26" width="44" height="9" rx="4" fill="${dark}" opacity="0.35"/>
+      </g>`;
+    case 'jar':
+      return `<g transform="translate(118 145)">
+        <rect x="-66" y="-84" width="132" height="26" rx="9" fill="${dark}"/>
+        <path d="M-60 -58 H60 V60 A18 18 0 0 1 42 78 H-42 A18 18 0 0 1 -60 60 Z" fill="#ffffff" opacity="0.96"/>
+        <rect x="-60" y="-6" width="120" height="58" fill="${accent}" opacity="0.92"/>
+        <text x="0" y="31" text-anchor="middle" font-family="${font}" font-size="14" font-weight="700" fill="#ffffff">JAR</text>
+      </g>`;
+    case 'liquid':
+      return `<g transform="translate(118 145)">
+        <rect x="-36" y="-104" width="72" height="22" rx="7" fill="${dark}"/>
+        <rect x="-24" y="-84" width="48" height="18" fill="#ffffff" opacity="0.9"/>
+        <path d="M-54 -66 H54 V66 A18 18 0 0 1 36 84 H-36 A18 18 0 0 1 -54 66 Z" fill="#ffffff" opacity="0.96"/>
+        <rect x="-54" y="6" width="108" height="60" fill="${accent}" opacity="0.92"/>
+        <text x="0" y="43" text-anchor="middle" font-family="${font}" font-size="14" font-weight="700" fill="#ffffff">LIQUID</text>
+      </g>`;
+    case 'drops':
+      return `<g transform="translate(118 145)">
+        <ellipse cx="0" cy="-96" rx="22" ry="16" fill="${dark}"/>
+        <rect x="-6" y="-86" width="12" height="26" fill="${dark}" opacity="0.75"/>
+        <rect x="-44" y="-62" width="88" height="136" rx="18" fill="#ffffff" opacity="0.96"/>
+        <rect x="-44" y="4" width="88" height="56" rx="8" fill="${accent}" opacity="0.92"/>
+        <text x="0" y="40" text-anchor="middle" font-family="${font}" font-size="13" font-weight="700" fill="#ffffff">DROPS</text>
+      </g>`;
+    default:
+      return null;
+  }
+}
+
+/** Illustrations for tablets and liquid/powder packs (returns null if unknown). */
+function artFor(form, variety) {
+  const accent = variety.from;
+  const dark = variety.to;
+  const font = 'Arial, Helvetica, sans-serif';
+
+  switch (form) {
+    case 'capsule':
+      return `<g transform="translate(118 145) rotate(-30)">
+        <rect x="-72" y="-26" width="72" height="52" rx="26" fill="#ffffff" opacity="0.96"/>
+        <rect x="0" y="-26" width="72" height="52" rx="26" fill="${accent}"/>
+        <rect x="-4" y="-26" width="8" height="52" fill="${dark}" opacity="0.35"/>
+        <rect x="-72" y="-26" width="144" height="52" rx="26" fill="none" stroke="${dark}" stroke-opacity="0.25"/>
+      </g>`;
+    case 'syrup':
+      return `<g transform="translate(118 145)">
+        <rect x="-34" y="-100" width="68" height="22" rx="7" fill="${dark}"/>
+        <rect x="-22" y="-80" width="44" height="18" fill="#ffffff" opacity="0.9"/>
+        <rect x="-58" y="-64" width="116" height="150" rx="20" fill="#ffffff" opacity="0.96"/>
+        <rect x="-58" y="6" width="116" height="62" rx="8" fill="${accent}" opacity="0.92"/>
+        <text x="0" y="45" text-anchor="middle" font-family="${font}" font-size="15" font-weight="700" fill="#ffffff">SYRUP</text>
+      </g>`;
+    case 'tube':
+      return `<g transform="translate(118 145) rotate(-10)">
+        <rect x="-30" y="-94" width="60" height="24" rx="7" fill="${dark}"/>
+        <path d="M-42 -66 L42 -66 L32 70 A12 12 0 0 1 20 81 L-20 81 A12 12 0 0 1 -32 70 Z" fill="#ffffff" opacity="0.96"/>
+        <rect x="-38" y="-18" width="76" height="50" rx="7" fill="${accent}" opacity="0.92"/>
+        <text x="0" y="15" text-anchor="middle" font-family="${font}" font-size="14" font-weight="700" fill="#ffffff">GEL</text>
+        <rect x="-42" y="76" width="84" height="10" rx="3" fill="${dark}" opacity="0.6"/>
+      </g>`;
+    case 'spray':
+      return `<g transform="translate(118 145)">
+        <rect x="-18" y="-96" width="36" height="18" rx="5" fill="${dark}"/>
+        <rect x="-30" y="-78" width="60" height="20" rx="7" fill="#ffffff" opacity="0.9"/>
+        <rect x="-52" y="-58" width="104" height="140" rx="22" fill="#ffffff" opacity="0.96"/>
+        <rect x="-52" y="0" width="104" height="58" rx="8" fill="${accent}" opacity="0.92"/>
+        <text x="0" y="37" text-anchor="middle" font-family="${font}" font-size="14" font-weight="700" fill="#ffffff">SPRAY</text>
+        <circle cx="34" cy="-104" r="5" fill="#ffffff" opacity="0.8"/>
+        <circle cx="50" cy="-94" r="4" fill="#ffffff" opacity="0.65"/>
+        <circle cx="58" cy="-78" r="3" fill="#ffffff" opacity="0.5"/>
+      </g>`;
+    case 'sachet':
+      return `<g transform="translate(118 145)">
+        <path d="M-64 -86 H64 V64 A14 14 0 0 1 50 78 H-50 A14 14 0 0 1 -64 64 Z" fill="#ffffff" opacity="0.96"/>
+        <path d="M-64 -86 L-52 -100 H52 L64 -86 Z" fill="${dark}"/>
+        <rect x="-64" y="-28" width="128" height="58" fill="${accent}" opacity="0.92"/>
+        <text x="0" y="9" text-anchor="middle" font-family="${font}" font-size="14" font-weight="700" fill="#ffffff">SACHET</text>
+        <circle cx="-34" cy="56" r="3" fill="${dark}" opacity="0.45"/>
+        <circle cx="-14" cy="62" r="3" fill="${dark}" opacity="0.45"/>
+        <circle cx="10" cy="54" r="3" fill="${dark}" opacity="0.45"/>
+        <circle cx="32" cy="62" r="3" fill="${dark}" opacity="0.45"/>
+      </g>`;
+    case 'tablet':
+      return `<g transform="translate(118 145) rotate(-8)">
+        <rect x="-70" y="-56" width="140" height="112" rx="16" fill="#ffffff" opacity="0.96"/>
+        <circle cx="-38" cy="-26" r="15" fill="${accent}" opacity="0.9"/>
+        <circle cx="0" cy="-26" r="15" fill="${accent}" opacity="0.75"/>
+        <circle cx="38" cy="-26" r="15" fill="${accent}" opacity="0.9"/>
+        <circle cx="-38" cy="26" r="15" fill="${accent}" opacity="0.75"/>
+        <circle cx="0" cy="26" r="15" fill="${accent}" opacity="0.9"/>
+        <circle cx="38" cy="26" r="15" fill="${accent}" opacity="0.75"/>
+        <path d="M-70 0 H70" stroke="${dark}" stroke-opacity="0.15"/>
+      </g>`;
+    default:
+      return null;
+  }
 }
 
 /** A simple, dependency-free SVG "product label". */
 function svgFor(item) {
   const variety = VARIETIES[item.variety];
   const [line1, line2] = splitLabel(item.short || item.name);
-  const rx = item.rx
-    ? `<rect x="486" y="292" width="104" height="40" rx="20" fill="#ffffff" opacity="0.94"/>
-       <text x="538" y="319" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="${variety.to}">Rx ONLY</text>`
-    : '';
+  const form = item.form || FORMS[item.name] || 'tablet';
+  const art = artFor(form, variety) || packArtFor(form, variety) || artFor('tablet', variety);
+  const font = 'Arial, Helvetica, sans-serif';
+  const badge = item.rx
+    ? `<rect x="452" y="208" width="108" height="34" rx="17" fill="#ffffff"/>
+       <text x="506" y="231" text-anchor="middle" font-family="${font}" font-size="15" font-weight="700" fill="${variety.to}">Rx ONLY</text>`
+    : `<rect x="452" y="208" width="108" height="34" rx="17" fill="#ffffff" opacity="0.22" stroke="#ffffff" stroke-opacity="0.55"/>
+       <text x="506" y="231" text-anchor="middle" font-family="${font}" font-size="14" font-weight="700" fill="#ffffff">OTC</text>`;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420" role="img" aria-label="${escapeXml(item.name)}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300" role="img" aria-label="${escapeXml(item.name)}">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="${variety.from}"/>
       <stop offset="1" stop-color="${variety.to}"/>
     </linearGradient>
   </defs>
-  <rect width="640" height="420" fill="url(#bg)"/>
-  <circle cx="556" cy="54" r="132" fill="#ffffff" opacity="0.10"/>
-  <circle cx="70" cy="392" r="96" fill="#ffffff" opacity="0.08"/>
-  <rect x="52" y="64" width="196" height="96" rx="26" fill="#ffffff" opacity="0.94"/>
-  <rect x="92" y="92" width="116" height="40" rx="20" fill="${variety.from}" opacity="0.9"/>
-  <rect x="92" y="92" width="58" height="40" rx="20" fill="#ffffff"/>
-  <rect x="228" y="60" width="14" height="14" rx="7" fill="#ffffff" opacity="0.7"/>
-  <text x="52" y="242" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="700" fill="#ffffff">${escapeXml(line1)}</text>
-  ${line2 ? `<text x="52" y="288" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="700" fill="#ffffff">${escapeXml(line2)}</text>` : ''}
-  <text x="52" y="348" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600" fill="#ffffff" opacity="0.9">${escapeXml(variety.label)}</text>
-  <text x="52" y="382" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#ffffff" opacity="0.75">MediTrack demo catalogue</text>
-  ${rx}
+  <rect width="600" height="300" fill="url(#bg)"/>
+  <circle cx="536" cy="34" r="118" fill="#ffffff" opacity="0.10"/>
+  <circle cx="44" cy="286" r="92" fill="#ffffff" opacity="0.08"/>
+  <rect x="22" y="20" width="556" height="260" rx="22" fill="#ffffff" opacity="0.10"/>
+  <rect x="30" y="44" width="176" height="212" rx="22" fill="#ffffff" opacity="0.16"/>
+  ${art}
+  <text x="238" y="112" font-family="${font}" font-size="28" font-weight="700" fill="#ffffff">${escapeXml(line1)}</text>
+  ${line2 ? `<text x="238" y="148" font-family="${font}" font-size="28" font-weight="700" fill="#ffffff">${escapeXml(line2)}</text>` : ''}
+  <text x="238" y="184" font-family="${font}" font-size="15" font-weight="600" fill="#ffffff" opacity="0.9">${escapeXml(variety.label)}</text>
+  <text x="238" y="252" font-family="${font}" font-size="13" fill="#ffffff" opacity="0.72">MediTrack · demo catalogue</text>
+  ${badge}
 </svg>
 `;
 }
 
-/** Write the product image if it is not there yet; returns its file name. */
-function writeImage(item) {
+// `--refresh-images` rewrites the committed SVGs in place (used after tweaking
+// the artwork); without it an existing file is never touched.
+const REFRESH_IMAGES = process.argv.includes('--refresh-images');
+
+/** Write the product image if it is missing (or refresh it); returns its name. */
+function writeImage(item, { force = false } = {}) {
   const filename = `seed-${slugify(item.name)}.svg`;
   const target = path.join(UPLOADS_DIR, filename);
-  if (!fs.existsSync(target)) {
+  if (force || !fs.existsSync(target)) {
     fs.writeFileSync(target, svgFor(item), 'utf8');
   }
   return filename;
@@ -187,6 +340,11 @@ async function main() {
     if (existing) {
       // Never overwrite stock/price/dates someone may have edited; only fill in
       // what this seed adds (category, description, image).
+      if (REFRESH_IMAGES && existing.image && existing.image.startsWith('seed-')) {
+        // Redraw the seed artwork; the file name (and the DB row) stays the same.
+        writeImage(item, { force: true });
+      }
+
       const patch = {};
       if (!existing.category) patch.category = category;
       if (!existing.description) patch.description = item.description;
