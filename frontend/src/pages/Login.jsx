@@ -185,8 +185,8 @@ export default function Login() {
                   Continue with Clerk
                 </button>
                 <p className="clerk-hint">
-                  Sign in with the email, Google or GitHub account you already use — Clerk
-                  handles the sign-in and MediTrack keeps your orders and wishlist.
+                  Use Clerk to sign in with your email or a social account — MediTrack keeps
+                  your orders, wishlist and prescriptions.
                 </p>
               </>
             )}
