@@ -37,6 +37,8 @@ before(async () => {
 
   const app = express();
   app.use('/uploads', store.serveUploads({ serverless: true }));
+  // Local mode: disk first, then the same MongoDB fallback used on Netlify.
+  app.use('/local-uploads', store.serveUploads({ serverless: false }));
   server = app.listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -100,6 +102,22 @@ test('unknown and traversal-style names are 404s', async () => {
   assert.equal((await fetch(`${baseUrl}/uploads/does-not-exist.png`)).status, 404);
   // Express decodes %2F before the handler sees it; basename() must neutralise it.
   assert.equal((await fetch(`${baseUrl}/uploads/..%2F..%2Fpackage.json`)).status, 404);
+});
+
+test('local mode serves disk files and falls back to MongoDB', async () => {
+  // A file that exists on disk (committed demo artwork).
+  const fromDisk = await fetch(`${baseUrl}/local-uploads/seed-paracetamol-500mg.svg`);
+  assert.equal(fromDisk.status, 200);
+  assert.equal(fromDisk.headers.get('content-type'), 'image/svg+xml');
+
+  // An image that only exists in MongoDB — e.g. uploaded on the deployed site.
+  const bytes = Buffer.from('89504e470d0a1a0a', 'hex');
+  await store.saveImageToDb('medicine-local-only.png', bytes, 'image/png');
+
+  const fromMongo = await fetch(`${baseUrl}/local-uploads/medicine-local-only.png`);
+  assert.equal(fromMongo.status, 200);
+  assert.equal(fromMongo.headers.get('content-type'), 'image/png');
+  assert.deepEqual(Buffer.from(await fromMongo.arrayBuffer()), bytes);
 });
 
 test('the bundled uploads directory is resolved at runtime', () => {

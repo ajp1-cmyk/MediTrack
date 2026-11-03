@@ -207,9 +207,13 @@ function removeUpload(filename) {
  *   detected from MEDITRACK_SERVERLESS (used by the tests).
  */
 function serveUploads({ serverless = SERVERLESS } = {}) {
-  if (!serverless) return express.static(UPLOADS_DIR);
-
   const router = express.Router();
+
+  // Locally, uploads live on disk and express.static handles them. Anything it
+  // misses (for example an image uploaded on the deployed site, which is stored
+  // in MongoDB) falls through to the same lookups the function uses.
+  if (!serverless) router.use(express.static(UPLOADS_DIR));
+
   router.get('/:name', async (req, res, next) => {
     // basename() prevents `..%2F` traversal in a function URL.
     const name = path.basename(String(req.params.name || ''));

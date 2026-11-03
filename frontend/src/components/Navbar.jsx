@@ -2,6 +2,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { useWishlist } from '../context/WishlistContext.jsx';
+import Icon from './Icon.jsx';
 
 export default function Navbar() {
   const { user, isBackOffice, loading, logout } = useAuth();
@@ -16,94 +17,112 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="navbar">
-      <Link to="/" className="brand">
-        <span className="logo">💊</span>
-        <span className="brand-text">MediTrack</span>
-      </Link>
-
-      <div className="nav-actions">
-        <NavLink
-          to="/"
-          end
-          className={({ isActive }) => `btn btn-ghost${isActive ? ' active' : ''}`}
-        >
-          Home
-        </NavLink>
-
-        {/* Staff and admins get the back-office console. */}
-        {isBackOffice && (
-          <Link to="/admin" className="btn btn-primary">
-            Admin console
-          </Link>
-        )}
-
-        {user && (
-          <NavLink
-            to="/orders"
-            className={({ isActive }) => `btn btn-ghost${isActive ? ' active' : ''}`}
-          >
-            Orders
-          </NavLink>
-        )}
-
-        {user && (
-          <NavLink
-            to="/wishlist"
-            className={({ isActive }) =>
-              `btn btn-ghost wishlist-link${isActive ? ' active' : ''}`
-            }
-            aria-label={`Wishlist, ${wishlistCount} item${wishlistCount === 1 ? '' : 's'}`}
-          >
-            <span aria-hidden="true">♡</span>
-            <span className="wishlist-link-text">Wishlist</span>
-            {wishlistCount > 0 && (
-              <span className="cart-badge wishlist-badge">{wishlistCount}</span>
-            )}
-          </NavLink>
-        )}
-
-        {user && (
-          <NavLink
-            to="/prescriptions"
-            className={({ isActive }) => `btn btn-ghost${isActive ? ' active' : ''}`}
-          >
-            Prescriptions
-          </NavLink>
-        )}
-
-        <NavLink
-          to="/cart"
-          className={({ isActive }) => `btn btn-ghost cart-link${isActive ? ' active' : ''}`}
-          aria-label={`Cart, ${itemCount} item${itemCount === 1 ? '' : 's'}`}
-        >
-          <span aria-hidden="true">🛒</span>
-          <span className="cart-link-text">Cart</span>
-          {itemCount > 0 && <span className="cart-badge">{itemCount}</span>}
-        </NavLink>
-
-        {loading ? (
-          // The silent refresh is still in flight; avoid flashing "Sign in".
-          <span className="user-chip" aria-hidden="true">
-            …
-          </span>
-        ) : user ? (
-          <>
-            <span className="user-chip" title={user.email}>
-              {user.name}
-              <span className={`role-badge role-${user.role}`}>{user.role}</span>
-            </span>
-            <button type="button" className="btn btn-ghost" onClick={handleLogout}>
-              Log out
-            </button>
-          </>
-        ) : (
-          <Link to="/login" className="btn btn-secondary">
-            Sign in
-          </Link>
-        )}
+    <>
+      <div className="promo-bar">
+        <span>
+          <Icon name="truck" size={15} /> <strong>Free delivery</strong> on orders over ₹499
+        </span>
+        <span className="promo-dot" aria-hidden="true" />
+        <span>
+          <Icon name="shield" size={15} /> Prescriptions verified by pharmacists
+        </span>
+        <span className="promo-dot" aria-hidden="true" />
+        <span>
+          <Icon name="clock" size={15} /> Dispatch before 4 pm, same day
+        </span>
       </div>
-    </nav>
+
+      <nav className="navbar">
+        <Link to="/" className="brand">
+          <span className="logo">
+            <Icon name="pill" size={22} strokeWidth={1.7} />
+          </span>
+          <span className="brand-text">MediTrack</span>
+        </Link>
+
+        <div className="nav-actions">
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) => `btn btn-ghost${isActive ? ' active' : ''}`}
+          >
+            Home
+          </NavLink>
+
+          {/* Staff and admins get the back-office console. */}
+          {isBackOffice && (
+            <Link to="/admin" className="btn btn-primary">
+              Admin console
+            </Link>
+          )}
+
+          {user && (
+            <NavLink
+              to="/orders"
+              className={({ isActive }) => `btn btn-ghost${isActive ? ' active' : ''}`}
+            >
+              Orders
+            </NavLink>
+          )}
+
+          {user && (
+            <NavLink
+              to="/wishlist"
+              className={({ isActive }) =>
+                `btn btn-ghost wishlist-link${isActive ? ' active' : ''}`
+              }
+              aria-label={`Wishlist, ${wishlistCount} item${wishlistCount === 1 ? '' : 's'}`}
+            >
+              <Icon name="heart" size={17} />
+              <span className="wishlist-link-text">Wishlist</span>
+              {wishlistCount > 0 && (
+                <span className="cart-badge wishlist-badge">{wishlistCount}</span>
+              )}
+            </NavLink>
+          )}
+
+          {user && (
+            <NavLink
+              to="/prescriptions"
+              className={({ isActive }) => `btn btn-ghost${isActive ? ' active' : ''}`}
+            >
+              Prescriptions
+            </NavLink>
+          )}
+
+          <NavLink
+            to="/cart"
+            className={({ isActive }) => `btn btn-ghost cart-link${isActive ? ' active' : ''}`}
+            aria-label={`Cart, ${itemCount} item${itemCount === 1 ? '' : 's'}`}
+          >
+            <Icon name="cart" size={18} />
+            <span className="cart-link-text">Cart</span>
+            {itemCount > 0 && <span className="cart-badge">{itemCount}</span>}
+          </NavLink>
+
+          {loading ? (
+            // The silent refresh is still in flight; avoid flashing "Sign in".
+            <span className="user-chip" aria-hidden="true">
+              …
+            </span>
+          ) : user ? (
+            <>
+              <span className="user-chip" title={user.email}>
+                {user.name}
+                <span className={`role-badge role-${user.role}`}>{user.role}</span>
+              </span>
+              <button type="button" className="btn btn-ghost" onClick={handleLogout}>
+                Log out
+              </button>
+            </>
+          ) : (
+            <Link to="/login" className="btn btn-secondary">
+              Sign in
+            </Link>
+          )}
+        </div>
+      </nav>
+    </>
   );
 }
 
