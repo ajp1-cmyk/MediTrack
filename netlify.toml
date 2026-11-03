@@ -6,7 +6,8 @@
   functions = "netlify/functions"
 
 # The demo product images live in backend/uploads and are committed to the repo.
-# Bundle them so the function can serve them even when no Blob exists yet.
+# They are also mirrored into MongoDB by `npm run seed:data`; bundling them keeps
+# a fresh database working even before the seeder has been run.
 [functions]
   included_files = ["backend/uploads/**"]
 

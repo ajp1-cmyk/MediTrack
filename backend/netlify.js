@@ -46,7 +46,8 @@ function jsonError(statusCode, error) {
 }
 
 exports.handler = async (event, context) => {
-  // Lets @netlify/blobs (uploaded medicine images) work in a Lambda-style function.
+  // Lets @netlify/blobs (the legacy image store, still read by imageStore.js)
+  // work in a Lambda-style function.
   if (event.blobs) connectLambda(event);
 
   const missing = REQUIRED_ENV.filter((key) => !process.env[key]);

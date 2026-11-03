@@ -10,7 +10,7 @@ catalogue, add medicines to a cart, check out, and pay on a sandbox payment page
 - **Auth:** JWT (`jsonwebtoken`) with bcrypt-hashed passwords (`bcryptjs`)
 - **Cart session:** signed, httpOnly cookie + server-side cart document (`cookie-parser`)
 - **Payments:** provider adapter with a built-in sandbox gateway (`PAYMENT_PROVIDER=mock`)
-- **Image upload:** multer (saved to `backend/uploads/`)
+- **Image upload:** multer (disk in `backend/uploads/` locally, bytes in MongoDB `medicineimages` on Netlify)
 
 ## Documentation
 
@@ -65,7 +65,7 @@ meditrack/
 │   │   ├── orderService.js    # checkout, hold→sale conversion, rollback, expiry
 │   │   ├── prescriptions.js   # AES-256-GCM files, validity + checkout gate (FR-1.4/2.1)
 │   │   ├── purchaseLimit.js   # daily unit allowance + checkout check (NFR-2.2)
-│   │   ├── imageStore.js      # medicine images: disk locally, Netlify Blobs on Netlify
+│   │   ├── imageStore.js      # medicine images: disk locally, MongoDB (`medicineimages`) on Netlify
 │   │   ├── paymentGateway.js  # provider registry + charge()
 │   │   └── providers/
 │   │       └── mockPayment.js # sandbox gateway (deterministic test cards)
@@ -310,7 +310,9 @@ the API with relative URLs from the frontend.
 `netlify.toml` builds `frontend/` into static files and runs the Express backend as a
 Netlify Function (`netlify/functions/api.js` → `backend/netlify.js`). Requests to `/api/*`
 and `/uploads/*` are rewritten to the function, so the SPA and the API share one origin.
-Uploaded medicine images are stored in Netlify Blobs, because function disks are temporary.
+Uploaded medicine images are stored as bytes in MongoDB (the `medicineimages` collection),
+because function disks are temporary and the deployment bundle does not always contain
+`backend/uploads`; `npm run seed:data` mirrors the 30 demo SVGs there too.
 
 Set these environment variables under **Project configuration → Environment variables**
 (the API returns a 500 explaining what is missing until they exist):
@@ -552,6 +554,24 @@ for the entity it describes.
 }
 ```
 
+The `medicineimages` collection holds the image **bytes**, keyed by the file name stored in
+`medicines.image` (a catalogue read never drags an image with it):
+
+```js
+// collection: medicineimages
+{
+  _id: ObjectId("..."),
+  filename: "seed-dettol-liquid.svg",   // == medicines.image
+  contentType: "image/svg+xml",
+  sizeBytes: 1968,
+  data: BinData(0, "...")               // select:false in the schema
+}
+```
+
+`GET /uploads/<file>` checks `medicineimages` first, then the legacy Netlify Blobs store,
+then the demo files committed in `backend/uploads/`. Locally the API keeps using the disk
+and `express.static`; on Netlify the same URL is served from MongoDB.
+
 The `prescriptions` collection is separate because a customer can have a history of uploads
 and the bytes must never travel with a catalogue read:
 
@@ -654,7 +674,7 @@ Rules of thumb for MongoDB:
 | PATCH | `/api/medicines/:id` | **admin or staff** | Update details and/or the stock quantity |
 | DELETE | `/api/medicines/:id` | **admin or staff** | Remove a medicine from stock |
 | GET | `/api/health` | public | `{ status, database }` |
-| GET | `/uploads/<file>` | public | Serve an uploaded image |
+| GET | `/uploads/<file>` | public | Serve an image: MongoDB → Netlify Blobs → committed demo file |
 
 `POST /api/medicines` fields (multipart/form-data):
 
@@ -914,6 +934,9 @@ allowance and `0` disabling the cap). `tests/catalog-search.test.js` covers the 
 catalogue: partial, case-insensitive `q` searches over name/category/description, the exact
 category filter, combining both, regex characters treated literally, the sorted category
 endpoint and the single-product endpoint (including 404s for malformed ids).
+`tests/image-store.test.js` covers MongoDB image storage (byte round-trip, `data` excluded
+from plain queries, replace-in-place, deletion), the serverless `/uploads/:name` route
+(content type, cache header, 404s, traversal) and the bundled demo-file fallback.
 **No MongoDB installation is required to run it.**
 
 ## Deployment
@@ -922,16 +945,17 @@ The prototype is deployed as a **single Netlify site + MongoDB Atlas**: the Vite
 built to static files and the Express API runs as a **Netlify Function**
 (`netlify/functions/api.js` → `backend/netlify.js`, via `serverless-http`). Requests to
 `/api/*` and `/uploads/*` are rewritten to that function, so the browser sees one origin and
-the `SameSite=Lax` cart/refresh cookies keep working. Uploaded medicine images go to
-**Netlify Blobs** (function disks are temporary); prescription files never touch the disk at
-all — they are encrypted in MongoDB. `netlify.toml` holds the build, the function rewrites and
-the SPA fallback.
+the `SameSite=Lax` cart/refresh cookies keep working. Uploaded medicine images are stored
+as bytes in **MongoDB** (`medicineimages`; function disks are temporary and the bundle does
+not always carry `backend/uploads`), with Netlify Blobs and the committed demo files kept as
+fallbacks; prescription files never touch the disk at all — they are encrypted in MongoDB.
+`netlify.toml` holds the build, the function rewrites and the SPA fallback.
 
 | Piece | Host | Notes |
 | ----- | ---- | ----- |
 | React SPA | Netlify | `netlify.toml`: builds `frontend/`, publishes `frontend/dist` |
 | Express API | Netlify Function | `netlify/functions/api.js` → `backend/netlify.js`; `/api/*` + `/uploads/*` rewritten to it |
-| Uploaded images | Netlify Blobs | `medicine-images` store; the 30 demo images are bundled from `backend/uploads/seed-*.svg` |
+| Uploaded images | MongoDB | `medicineimages` collection (filename in `medicines.image`); the 30 demo SVGs are mirrored there by `npm run seed:data` |
 | Database | MongoDB Atlas M0 | `MONGODB_URI`; allow `0.0.0.0/0` in Atlas because functions have no fixed egress IPs |
 
 Minimum environment variables (Netlify → **Project configuration → Environment variables**):
@@ -1025,7 +1049,7 @@ Where each requirement is implemented. Update the "Status" column as later phase
   alternative for background sweeps) is documented end-to-end in
   [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md): build/function settings, the required
   environment variables, `npm run seed:admin` / `npm run seed:data` / `npm run seed:demo`,
-  Netlify Blobs image storage, the Render keep-warm ping (15-minute spin-down, ephemeral
+  MongoDB-backed image storage, the Render keep-warm ping (15-minute spin-down, ephemeral
   disk; Netlify's proxy times out after 26 seconds) and `npm run smoke:deploy`.
   In production the server refuses to start without `JWT_SECRET` and `COOKIE_SECRET`.
 - **`EADDRINUSE: address already in use :::5000`** — an old backend (or another app) is
@@ -1037,6 +1061,6 @@ Where each requirement is implemented. Update the "Status" column as later phase
   see the demo card/UPI rules above. Swap the provider through the adapter for real
   payments.
 - Documents are serialised with `id` (mapped from `_id`) so the React app keeps using `m.id`.
-- Stale uploaded images are deleted from disk when a medicine is removed or its image replaced.
+- Stale uploaded images are deleted from disk (or the `medicineimages` collection) when a medicine is removed or its image replaced.
 - The currency symbol (₹) is only used for display; change it in the frontend if needed.
 

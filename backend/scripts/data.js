@@ -17,6 +17,7 @@ const path = require('path');
 const mongoose = require('mongoose');
 const { connectDB, disconnectDB } = require('../db');
 const Medicine = require('../models/Medicine');
+const MedicineImage = require('../models/MedicineImage');
 
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 
@@ -270,6 +271,49 @@ function writeImage(item, { force = false } = {}) {
   return filename;
 }
 
+const IMAGE_MIME_TYPES = {
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+};
+
+/**
+ * Copy the committed `seed-*.svg` files into MongoDB.
+ *
+ * A Netlify Function has no permanent disk and its bundle does not always carry
+ * backend/uploads, so `/uploads/<name>` reads the bytes from the
+ * `medicineimages` collection (see lib/imageStore.js). Re-running this seeder
+ * is therefore also how you "repair" the images of an existing deployment.
+ *
+ * @returns {Promise<number>} how many images were written
+ */
+async function storeSeedImagesInDb() {
+  const files = fs
+    .readdirSync(UPLOADS_DIR)
+    .filter((name) => /^seed-[A-Za-z0-9._-]+\.(svg|png|jpe?g|gif|webp)$/i.test(name));
+
+  for (const filename of files) {
+    const data = fs.readFileSync(path.join(UPLOADS_DIR, filename));
+    await MedicineImage.updateOne(
+      { filename },
+      {
+        $set: {
+          filename,
+          contentType: IMAGE_MIME_TYPES[path.extname(filename).toLowerCase()] || 'application/octet-stream',
+          sizeBytes: data.length,
+          data,
+        },
+      },
+      { upsert: true, setDefaultsOnInsert: true }
+    );
+  }
+
+  return files.length;
+}
+
 // 30 products across the seven varieties above. `mfdDays`/`expDays` are offsets
 // from today, so the demo stays valid whenever it is seeded.
 const ITEMS = [
@@ -375,6 +419,10 @@ async function main() {
     created += 1;
   }
 
+  // Mirror the committed artwork into MongoDB, so the deployment can serve it
+  // even when the function bundle (or disk) has no backend/uploads directory.
+  const storedImages = await storeSeedImagesInDb();
+
   const total = await Medicine.countDocuments();
   const varietyRows = await Medicine.aggregate([
     { $group: { _id: '$category', count: { $sum: 1 } } },
@@ -391,7 +439,10 @@ async function main() {
   varietyRows.forEach(({ _id, count }) => {
     console.log(`   • ${String(_id || '(uncategorised)').padEnd(30)} : ${count}`);
   });
-  console.log('\n   Images: backend/uploads/seed-*.svg (served at /uploads/<file>)');
+  console.log(
+    `\n   Images: backend/uploads/seed-*.svg (served at /uploads/<file>)\n` +
+      `           ${storedImages} image(s) mirrored into MongoDB collection "medicineimages"`
+  );
 }
 
 main()

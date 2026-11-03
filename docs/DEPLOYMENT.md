@@ -6,7 +6,7 @@ Express API as a Netlify Function.
 ```
 browser ──► https://<site>.netlify.app
               │  /api/*      ──► /.netlify/functions/api   (Express via serverless-http)
-              │  /uploads/*  ──► same function ──► Netlify Blobs (uploaded images)
+              │  /uploads/*  ──► same function ──► MongoDB `medicineimages` (image bytes)
               └─ everything else ─► /index.html            (SPA fallback)
                                    │
                                    └─ MongoDB Atlas (M0)
@@ -16,7 +16,7 @@ browser ──► https://<site>.netlify.app
 | ----- | ---- | ------------- |
 | React SPA | Netlify | `netlify.toml`: build `frontend/`, publish `frontend/dist` |
 | Express API | Netlify Function | `netlify/functions/api.js` → `backend/netlify.js`; `/api/*` + `/uploads/*` rewritten to it |
-| Uploaded images | Netlify Blobs | `medicine-images` store. Demo SVGs from `backend/uploads/seed-*.svg` are bundled, so they work without a Blob |
+| Uploaded images | MongoDB | `medicineimages` collection (bytes), `medicines.image` (file name). `npm run seed:data` mirrors the 30 demo SVGs; Netlify Blobs and the bundled files are fallbacks |
 | Prescription files | MongoDB | AES-256-GCM ciphertext in the `prescriptions` collection — never disk or Blobs |
 | Database | MongoDB Atlas M0 | `MONGODB_URI` |
 
@@ -27,8 +27,9 @@ origin means no `SameSite=None`, no third-party-cookie problems and no CORS pref
 > **Two ways to run the API.**
 >
 > 1. **Netlify Function (default in this repo).** Cheap, scales to zero, one origin, images in
->    Blobs. The interval sweepers do not run: lapsed cart holds are released lazily when a cart
->    is read, and an admin restocks from `/admin` (or `POST /api/admin/inventory/replenish`).
+>    MongoDB (`medicineimages`). The interval sweepers do not run: lapsed cart holds are
+>    released lazily when a cart is read, and an admin restocks from `/admin` (or
+>    `POST /api/admin/inventory/replenish`).
 > 2. **Render web service (section 8).** A long-running process keeps the background
 >    restock/hold sweeps and the on-disk `uploads/` route. Point `netlify.toml` back at it with
 >    the proxy rules shown there.
@@ -190,7 +191,7 @@ Manual checks:
 curl -s https://<site>.netlify.app/api/health
 curl -s https://<site>.netlify.app/api/medicines | head -c 300
 
-# A bundled demo image is served by the function
+# A demo image is served by the function (from MongoDB or the bundled files)
 curl -sI https://<site>.netlify.app/uploads/seed-paracetamol-500mg.svg | grep -i content-type
 
 # Browser-like POST: 401 means the request reached the API; 403 means an origin is blocked
@@ -215,7 +216,7 @@ Browser walkthrough:
 5. Set `DAILY_PURCHASE_LIMIT=1` in a preview environment and place two single-unit orders: the
    second checkout must return **409** without changing stock; the cart shows the allowance.
 6. `/admin/login` as the seeded administrator → invite a staff account → `/admin/stock` create
-   a medicine **with an image** (stored in Netlify Blobs) → replenish → audit log shows the
+   a medicine **with an image** (stored in MongoDB `medicineimages`) → replenish → audit log shows the
    prescription and stock entries.
 7. Refresh `/orders` directly (SPA fallback) and confirm the site is served over HTTPS.
 
@@ -230,7 +231,7 @@ Browser walkthrough:
 | `403 {"error":"Origin not allowed by CORS"}` on POST/PATCH/DELETE | The standard same-origin deploy is allowed automatically; a **split** frontend/custom domain is not. Add the exact origin to `CORS_ORIGIN` and redeploy. |
 | First request after idle is slow / a timed-out function | Netlify starts cold functions on demand; retry once. Keep frequently used functions warm if the demo needs instant responses. |
 | `413` or a dropped upload | The function request body is limited to ~6 MB. Prescription uploads are capped at 5 MB and medicine images at 5 MB; downsize the file. |
-| `/uploads/<file>` returns 404 | Uploaded images live in Netlify Blobs. The 30 demo images are bundled (`included_files`); if a medicine image is missing, re-upload it from `/admin/stock`. |
+| `/uploads/<file>` returns 404 | The image is not in `medicineimages`, not in Netlify Blobs and not in the bundled `backend/uploads/`. Re-run `MONGODB_URI='<atlas uri>' npm run seed:data` to mirror the demo SVGs, or re-upload the image from `/admin/stock`. |
 | Catalogue shows stale stock | A cache stored a GET. The API sets `Cache-Control: no-store` on `/api/*` (`backend/server.js`); redeploy if that middleware is missing. |
 | Cookies not stored | Serving over plain HTTP, or `NODE_ENV` is not `production` (cookies are `Secure` only in production). |
 | 404 when refreshing `/orders` | The SPA fallback rule is missing or is not last in `netlify.toml`. |
@@ -245,7 +246,8 @@ Browser walkthrough:
 
 - **Netlify Functions**: invocation and runtime limits on the free plan (synchronous requests
   time out after 10 seconds), ~6 MB request payloads, and Blobs quota. Static assets are served
-  from the CDN; API responses are explicitly `no-store`.
+  from the CDN; API responses are explicitly `no-store`. Image bytes count towards the 512 MB
+  Atlas M0 limit, so re-uploading the same picture repeatedly is worth avoiding.
 - **Atlas M0**: shared cluster, no backups, 512 MB storage.
 - Rate limits are in-memory (`express-rate-limit`). In function mode several instances can be
   warm, so the limits are approximate; a strict deployment needs a shared store. Behind
@@ -304,9 +306,9 @@ To route the Netlify SPA at Render, replace the two function rewrites in `netlif
 ```
 
 Keep the SPA fallback last. `X-Forwarded-Proto` stops the API's production HTTPS redirect from
-bouncing the browser to the Render hostname. On the free plan the disk is **ephemeral**:
-medicine images uploaded to `/admin/stock` disappear on redeploy (the committed seed images
-are restored from the repository; prescription files are safe because they live in MongoDB).
+bouncing the browser to the Render hostname. On the free plan the disk is **ephemeral**, but
+medicine images survive a redeploy because the bytes live in MongoDB (`medicineimages`);
+prescription files are safe for the same reason.
 
 ---
 
@@ -317,8 +319,8 @@ with encryption at rest (NFR-1.4), plus a fair-use daily unit cap (NFR-2.2).
 
 **Where prescription files live.** Uploaded scans are encrypted with AES-256-GCM in
 `lib/prescriptions.js` and stored in the `prescriptions` collection. Nothing is written to
-`backend/uploads` or Netlify Blobs, so neither the function's read-only disk nor Render's
-ephemeral disk matters for them:
+`backend/uploads` or the medicine image store, so neither the function's read-only disk nor
+Render's ephemeral disk matters for them:
 
 1. `RX_ENCRYPTION_KEY` (64 hex characters) is the data-encryption key. Set it in the Netlify
    (or Render) environment **before the first upload**. If it is missing, a key is derived from
@@ -362,7 +364,7 @@ ephemeral disk matters for them:
 | `netlify.toml` | Build, function rewrites, bundled demo images, SPA fallback |
 | `netlify/functions/api.js` | Netlify Function entry point |
 | `backend/netlify.js` | Serverless-http wrapper: path rewrite, DB connect, migrations, env guard |
-| `backend/lib/imageStore.js` | Medicine images: disk locally, Netlify Blobs on Netlify, bundled seed fallback |
+| `backend/lib/imageStore.js` | Medicine images: disk locally; MongoDB (`medicineimages`) → Netlify Blobs → bundled seed files on Netlify |
 | `backend/server.js` | `Cache-Control: no-store` on `/api/*`, CORS, HTTPS redirect, routes |
 | `backend/scripts/data.js` | 30 products / 7 varieties with descriptions + generated SVG images |
 | `backend/scripts/seed-admin.js` | First administrator against the deployed database |
