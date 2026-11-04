@@ -265,6 +265,7 @@ Browser walkthrough:
 | Restock/hold sweeps do not run | Expected in function mode. Holds are released lazily on cart reads; restock from `/admin` or use the Render alternative (section 8). |
 | Catalogue empty, page shows `Unexpected token 'N', "Not Found " is not valid JSON` | The SPA asked a host that does not serve the API. Render answers any path it does not have with the plain-text `404 Not Found`, and `JSON.parse` chokes on it — so the request went to `/api/…` on the SPA's own origin. `VITE_API_BASE_URL` was empty (or wrong) **at build time**; see “SPA on Render” in section 8. |
 | Same `Unexpected token '<', "<!doctype…` | Same cause, but that host has an SPA fallback and returned `index.html` for `/api/…`. The failing URL under DevTools → Network is the give-away; set `VITE_API_BASE_URL` and rebuild. |
+| Catalogue shows `Could not reach the API at https://… (network or CORS error)` (or a bare `Failed to fetch`) | The browser rejected the cross-origin call before JavaScript could read a response, which happens when the reply carries no `Access-Control-Allow-Origin` — the API does not list the SPA's origin in `CORS_ORIGIN`. Set it on the **API service** to the exact origin (`https://<site>.onrender.com`, no trailing slash; comma-separate previews and custom domains) and redeploy that service. Verify with `curl -i -H 'Origin: https://<site>' https://<api>/api/medicines \| grep -i access-control-allow-origin` — it must echo the origin. A sleeping free instance fails the same way, so retry once before changing anything. |
 
 ---
 

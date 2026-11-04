@@ -9,7 +9,7 @@
 // Every path goes through `apiUrl()`, so the same code works same-origin (Vite
 // proxy, Netlify function) and against an API on another host
 // (VITE_API_BASE_URL, e.g. the Express server on Render).
-import { apiUrl, usesRemoteApi } from './config.js';
+import { API_BASE_URL, apiUrl, usesRemoteApi } from './config.js';
 
 let accessToken = null;
 
@@ -139,24 +139,58 @@ function nonJsonError(res, url, text) {
 }
 
 /**
+ * Build the error for a request the browser refused to complete.
+ *
+ * A CORS rejection is invisible to JavaScript: `fetch()` rejects with a bare
+ * `TypeError: Failed to fetch` and no response object, so neither the status nor
+ * the URL is available. That is the normal failure of a split deploy whose API
+ * does not list the SPA's origin in `CORS_ORIGIN` — the 403 reply carries no
+ * `Access-Control-Allow-Origin`, so the browser discards it — and it looks
+ * exactly like the API being down or asleep. Name the URL and the origin to
+ * check instead of surfacing the bare TypeError.
+ */
+function networkError(cause, url) {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'this page';
+  const hint = usesRemoteApi
+    ? `The browser blocked it before reading a response, which means ${origin} is not an allowed origin or ${API_BASE_URL} is down. On the API service set CORS_ORIGIN=${origin} (exact origin, no trailing slash) and redeploy it.`
+    : 'Check that the API is running and that /api is proxied (npm run dev) or rewritten (netlify.toml) on this host.';
+
+  const error = new Error(`Could not reach the API at ${url} (network or CORS error). ${hint}`);
+  error.status = 0;
+  error.url = url;
+  error.cause = cause;
+  return error;
+}
+
+/**
  * fetch() with JSON handling, the Authorization header and credentials.
  * On a 401 it tries one silent refresh and replays the request, so an expired
  * 15-minute access token is invisible to the user.
  * Throws an Error carrying `status`, `url` (and the parsed body as `data`) when
  * the response is not ok. A non-JSON body (a proxy/edge 404 page, an SPA
  * fallback, an HTML error page) is reported as-is instead of surfacing the
- * `JSON.parse` SyntaxError.
+ * `JSON.parse` SyntaxError, and a rejected fetch (CORS, offline, mixed content)
+ * names the URL and the origin the API has to allow.
  */
 export async function apiFetch(path, options = {}) {
   const { retryOnUnauthorized = true, ...requestOptions } = options;
   const url = apiUrl(path);
 
-  let res = await sendRequest(path, requestOptions);
+  let res;
+  try {
+    res = await sendRequest(path, requestOptions);
+  } catch (err) {
+    throw networkError(err, url);
+  }
 
   if (res.status === 401 && retryOnUnauthorized && !NO_RETRY_PATHS.has(path)) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
-      res = await sendRequest(path, requestOptions);
+      try {
+        res = await sendRequest(path, requestOptions);
+      } catch (err) {
+        throw networkError(err, url);
+      }
     }
   }
 
@@ -187,11 +221,24 @@ export async function apiFetch(path, options = {}) {
  * Resolves to a Blob.
  */
 export async function apiFetchBlob(path) {
-  let res = await sendRequest(path);
+  const url = apiUrl(path);
+
+  let res;
+  try {
+    res = await sendRequest(path);
+  } catch (err) {
+    throw networkError(err, url);
+  }
 
   if (res.status === 401) {
     const refreshed = await refreshAccessToken();
-    if (refreshed) res = await sendRequest(path);
+    if (refreshed) {
+      try {
+        res = await sendRequest(path);
+      } catch (err) {
+        throw networkError(err, url);
+      }
+    }
   }
 
   if (!res.ok) {
@@ -204,6 +251,7 @@ export async function apiFetchBlob(path) {
     }
     const error = new Error(message);
     error.status = res.status;
+    error.url = url;
     throw error;
   }
 

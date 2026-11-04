@@ -1121,6 +1121,16 @@ goes to `/api/…` on that origin comes back as Render's plain-text `404 Not Fou
 catalogue reports as `Unexpected token 'N', "Not Found " is not valid JSON`. See section 8,
 “SPA on Render (static site)”.
 
+If the base URL is right but `CORS_ORIGIN` is not, the browser discards the API's `403` (it has
+no `Access-Control-Allow-Origin`) and the catalogue shows **`Failed to fetch`**; the SPA now
+turns that into *“Could not reach the API at https://… (network or CORS error)”* with the exact
+origin to allow. Check it from a shell before touching the UI:
+
+```bash
+curl -i -H 'Origin: https://<site>.onrender.com' \
+  https://meditrack-1owj.onrender.com/api/medicines | grep -i access-control-allow-origin
+```
+
 In a serverless function the interval sweepers do not run: lapsed cart holds are released
 lazily when a cart is read, and an admin can restock from `/admin` (or
 `POST /api/admin/inventory/replenish`). Prescription uploads are capped at 5 MB, under
