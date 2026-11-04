@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import OrderSummary from '../components/OrderSummary.jsx';
 import { accountApi, ordersApi } from '../lib/api.js';
+import { bankLabel } from '../lib/banks.js';
 import {
   formatCurrency,
   formatDate,
@@ -15,6 +16,9 @@ const METHOD_LABELS = {
   netbanking: 'Net banking',
   cod: 'Cash on delivery',
 };
+
+// The API stores the card network in lower case (`visa`, `mastercard`, `card`).
+const CARD_BRANDS = { visa: 'Visa', mastercard: 'Mastercard' };
 
 export default function OrderConfirmation() {
   const { id } = useParams();
@@ -142,13 +146,11 @@ export default function OrderConfirmation() {
           </p>
           {order.payment.last4 && order.payment.method === 'card' && (
             <p className="muted">
-              {order.payment.brand} ending in {order.payment.last4}
+              {CARD_BRANDS[order.payment.brand] || 'Card'} ending in {order.payment.last4}
             </p>
           )}
           {order.payment.method === 'netbanking' && order.payment.brand && (
-            <p className="muted">
-              Paid through {order.payment.brand.toUpperCase()} net banking
-            </p>
+            <p className="muted">Paid through {bankLabel(order.payment.brand)} net banking</p>
           )}
           {order.payment.transactionId && (
             <p className="muted">Transaction: {order.payment.transactionId}</p>

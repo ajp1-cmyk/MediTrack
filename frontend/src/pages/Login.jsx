@@ -332,7 +332,8 @@ export default function Login() {
                 (never in production), so the demo needs no real mailbox. */}
             {otpDevCode && (
               <p className="otp-dev" role="status">
-                Development code: <strong>{otpDevCode}</strong>
+                If the email has not arrived yet, use this code:{' '}
+                <strong>{otpDevCode}</strong>
               </p>
             )}
 

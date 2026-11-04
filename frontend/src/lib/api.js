@@ -115,24 +115,29 @@ function bodySnippet(text, max = 140) {
  * A deployed SPA can end up talking to a host that does not serve the API:
  * Render answers an unknown path with the plain-text `Not Found`, and a static
  * host with an SPA fallback answers with `index.html`. `JSON.parse` on either
- * throws a bare `SyntaxError` (`Unexpected token 'N', "Not Found " is not valid
- * JSON`) that hides the status and the URL, so report what actually happened —
- * and, for a 404, the usual cause.
+ * throws a bare `SyntaxError` that hides the status and the URL. The shopper
+ * gets one plain sentence; the status, the body snippet and the usual cause are
+ * logged for whoever is debugging the deploy.
  */
 function nonJsonError(res, url, text) {
   const contentType = (res.headers.get('content-type') || 'unknown').split(';')[0];
   const status = `HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}`;
   const snippet = bodySnippet(text);
 
-  let message = `${status} from ${url} was not JSON (${contentType})`;
-  if (snippet) message += `: “${snippet}”`;
+  let detail = `${status} from ${url} was not JSON (${contentType})`;
+  if (snippet) detail += `: “${snippet}”`;
   if (res.status === 404) {
-    message += usesRemoteApi
+    detail += usesRemoteApi
       ? ' — check that VITE_API_BASE_URL points at the running API'
       : ' — this site is calling /api on its own origin, but no API is served there; set VITE_API_BASE_URL and rebuild';
   }
+  console.error('[MediTrack]', detail);
 
-  const error = new Error(message);
+  const error = new Error(
+    res.status === 404
+      ? 'This page could not be loaded. Please refresh and try again.'
+      : 'The store is briefly unavailable. Please try again in a moment.'
+  );
   error.status = res.status;
   error.url = url;
   return error;
@@ -146,16 +151,18 @@ function nonJsonError(res, url, text) {
  * the URL is available. That is the normal failure of a split deploy whose API
  * does not list the SPA's origin in `CORS_ORIGIN` — the 403 reply carries no
  * `Access-Control-Allow-Origin`, so the browser discards it — and it looks
- * exactly like the API being down or asleep. Name the URL and the origin to
- * check instead of surfacing the bare TypeError.
+ * exactly like the API being down or asleep. The shopper sees a connection
+ * message; the URL and the origin that has to be allowed are logged for the
+ * developer instead of being printed on the page.
  */
 function networkError(cause, url) {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'this page';
   const hint = usesRemoteApi
     ? `The browser blocked it before reading a response, which means ${origin} is not an allowed origin or ${API_BASE_URL} is down. On the API service set CORS_ORIGIN=${origin} (exact origin, no trailing slash) and redeploy it.`
     : 'Check that the API is running and that /api is proxied (npm run dev) or rewritten (netlify.toml) on this host.';
+  console.error(`[MediTrack] Could not reach the API at ${url}. ${hint}`, cause);
 
-  const error = new Error(`Could not reach the API at ${url} (network or CORS error). ${hint}`);
+  const error = new Error('The store could not be reached. Check your connection and try again.');
   error.status = 0;
   error.url = url;
   error.cause = cause;

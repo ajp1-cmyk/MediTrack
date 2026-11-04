@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import OrderSummary from '../components/OrderSummary.jsx';
 import { ordersApi } from '../lib/api.js';
+import { BANKS } from '../lib/banks.js';
 import {
   formatCurrency,
   minutesLeft,
@@ -10,22 +11,14 @@ import {
 } from '../lib/format.js';
 
 const METHODS = [
-  { id: 'card', label: 'Card', hint: 'Visa / Mastercard sandbox' },
+  { id: 'card', label: 'Card', hint: 'Visa or Mastercard' },
   { id: 'upi', label: 'UPI', hint: 'Pay with a UPI ID' },
-  { id: 'netbanking', label: 'Net banking', hint: 'Demo bank login' },
+  { id: 'netbanking', label: 'Net banking', hint: 'All major banks' },
   { id: 'cod', label: 'Cash on delivery', hint: 'Pay when it arrives' },
 ];
 
-// Mirrors DEMO_BANKS in backend/lib/providers/mockPayment.js. The sandbox never
-// opens a real bank login: it only records which bank was chosen.
-const BANKS = [
-  { id: 'hdfc', label: 'HDFC Bank' },
-  { id: 'icici', label: 'ICICI Bank' },
-  { id: 'sbi', label: 'State Bank of India' },
-  { id: 'axis', label: 'Axis Bank' },
-  { id: 'kotak', label: 'Kotak Mahindra Bank' },
-  { id: 'failbank', label: 'Demo Bank (always declines)' },
-];
+// The bank list lives in lib/banks.js: the API stores the bank code on the order
+// as `payment.brand`, and no real bank login is ever opened.
 
 export default function Payment() {
   const { id } = useParams();
@@ -353,8 +346,7 @@ export default function Payment() {
                       ))}
                     </select>
                     <p className="summary-note">
-                      Sandbox only — no bank login is performed and no account details are
-                      stored.
+                      You are not asked for a bank login and no account details are stored.
                     </p>
                   </div>
                 )}
@@ -386,10 +378,10 @@ export default function Payment() {
               </form>
 
               <p className="sandbox-note">
-                Sandbox gateway — no real money moves. Use <strong>4242 4242 4242 4242</strong>{' '}
-                with any future expiry and CVV to succeed; a card ending in <strong>0002</strong>{' '}
-                is declined. UPI <strong>fail@bank</strong> and the demo bank that always
-                declines fail on purpose.
+                Test payments only, so no money moves and no real card is charged. Card{' '}
+                <strong>4242 4242 4242 4242</strong> with any future expiry and CVV is approved;
+                a card ending in <strong>0002</strong>, the UPI ID <strong>fail@bank</strong> and
+                Sunrise Bank are always declined.
               </p>
             </>
           )}

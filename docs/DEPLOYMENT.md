@@ -264,9 +264,9 @@ Browser walkthrough:
 | `Refusing to start in production without …` (local/Render) | `JWT_SECRET` / `COOKIE_SECRET` missing. |
 | Prescription file returns `could not be decrypted` | `RX_ENCRYPTION_KEY` changed (or was not set and `JWT_SECRET` rotated). Restore the original key; the file cannot be recovered otherwise. |
 | Restock/hold sweeps do not run | Expected in function mode. Holds are released lazily on cart reads; restock from `/admin` or use the Render alternative (section 8). |
-| Catalogue empty, page shows `Unexpected token 'N', "Not Found " is not valid JSON` | The SPA asked a host that does not serve the API. Render answers any path it does not have with the plain-text `404 Not Found`, and `JSON.parse` chokes on it — so the request went to `/api/…` on the SPA's own origin. `VITE_API_BASE_URL` was empty (or wrong) **at build time**; see “SPA on Render” in section 8. |
-| Same `Unexpected token '<', "<!doctype…` | Same cause, but that host has an SPA fallback and returned `index.html` for `/api/…`. The failing URL under DevTools → Network is the give-away; set `VITE_API_BASE_URL` and rebuild. |
-| Catalogue shows `Could not reach the API at https://… (network or CORS error)` (or a bare `Failed to fetch`) | The browser rejected the cross-origin call before JavaScript could read a response, which happens when the reply carries no `Access-Control-Allow-Origin` — the API does not list the SPA's origin in `CORS_ORIGIN`. Set it on the **API service** to the exact origin (`https://<site>.onrender.com`, no trailing slash; comma-separate previews and custom domains) and redeploy that service. Verify with `curl -i -H 'Origin: https://<site>' https://<api>/api/medicines \| grep -i access-control-allow-origin` — it must echo the origin. A sleeping free instance fails the same way, so retry once before changing anything. |
+| Catalogue empty, page shows *“The store is briefly unavailable. Please try again in a moment.”* | The SPA asked a host that does not serve the API. Render answers any path it does not have with the plain-text `404 Not Found`, and `JSON.parse` chokes on it — so the request went to `/api/…` on the SPA's own origin. The browser console carries the status, URL and body snippet (`[MediTrack] … was not JSON`); `VITE_API_BASE_URL` was empty (or wrong) **at build time**. See “SPA on Render” in section 8. |
+| Same message, console shows `<!doctype…` in the body snippet | Same cause, but that host has an SPA fallback and returned `index.html` for `/api/…`. The failing URL under DevTools → Network is the give-away; set `VITE_API_BASE_URL` and rebuild. |
+| Catalogue shows *“The store could not be reached. Check your connection and try again.”* (console: `Could not reach the API at …`) | The browser rejected the cross-origin call before JavaScript could read a response, which happens when the reply carries no `Access-Control-Allow-Origin` — the API does not list the SPA's origin in `CORS_ORIGIN`. Set it on the **API service** to the exact origin (`https://<site>.onrender.com`, no trailing slash; comma-separate previews and custom domains) and redeploy that service. Verify with `curl -i -H 'Origin: https://<site>' https://<api>/api/medicines \| grep -i access-control-allow-origin` — it must echo the origin. A sleeping free instance fails the same way, so retry once before changing anything. |
 
 ---
 
@@ -451,12 +451,14 @@ Then set these on the **API service**:
 | `CORS_ORIGIN` | `https://<static-site>.onrender.com` | the browser origin allowed to send credentialed requests |
 | `COOKIE_SAMESITE` | `none` | the refresh and guest-cart cookies must cross sites (HTTPS only) |
 
-**What a missed step looks like.** The catalogue shows *“We could not load the catalogue —
-Unexpected token 'N', "Not Found " is not valid JSON”*. That is `JSON.parse` choking on Render's
-plain-text 404: the bundle was built with an empty or wrong `VITE_API_BASE_URL`, so it requested
-`/api/medicines` from the static site itself. Open DevTools → Network and check the failing
-request URL — it must start with the API origin. Vite inlines the value at build time, so after
-fixing the variable redeploy with **Manual Deploy → Clear build cache & deploy**.
+**What a missed step looks like.** The catalogue shows *“We could not load the catalogue”* and
+under it *“The store is briefly unavailable. Please try again in a moment.”* That is `JSON.parse`
+choking on Render's plain-text 404: the bundle was built with an empty or wrong
+`VITE_API_BASE_URL`, so it requested `/api/medicines` from the static site itself. The console
+logs `[MediTrack] … was not JSON` with the status, the URL and the body snippet; DevTools →
+Network shows the same failing URL, which must start with the API origin. Vite inlines the value
+at build time, so after fixing the variable redeploy with **Manual Deploy → Clear build cache &
+deploy**.
 
 ---
 

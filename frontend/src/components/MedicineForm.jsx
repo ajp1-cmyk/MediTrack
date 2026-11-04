@@ -161,7 +161,7 @@ export default function MedicineForm({ onCreated }) {
             placeholder="30"
             required
           />
-          <p className="file-hint">How long one pack lasts — drives the refill reminder.</p>
+          <p className="file-hint">How long one pack lasts. Used to remind the customer when a refill is due.</p>
         </div>
         <div className="field">
           <label htmlFor="prescriptionRequired">Prescription</label>

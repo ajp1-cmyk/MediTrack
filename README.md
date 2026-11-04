@@ -1123,16 +1123,17 @@ The SPA can be hosted on Render as well — **Static Site**, root directory `fro
 (services do not share environment variables) and a `/* → /index.html` rewrite for
 client-side routing. A static site serves only its own files, so an API request that still
 goes to `/api/…` on that origin comes back as Render's plain-text `404 Not Found` — which the
-catalogue reports as `Unexpected token 'N', "Not Found " is not valid JSON`. The same plain
+catalogue reports as “The store is briefly unavailable. Please try again in a moment.” (the
+console logs the exact URL and body snippet). The same plain
 `Not Found` is what a **reload of a product page** (`/medicines/<id>`) gets without that
 rewrite; if the static site has no Redirects/Rewrites tab, build it with `VITE_ROUTER_MODE=hash`
 (section 8) so every URL only ever requests `/`. See section 8,
 “SPA on Render (static site)”.
 
 If the base URL is right but `CORS_ORIGIN` is not, the browser discards the API's `403` (it has
-no `Access-Control-Allow-Origin`) and the catalogue shows **`Failed to fetch`**; the SPA now
-turns that into *“Could not reach the API at https://… (network or CORS error)”* with the exact
-origin to allow. Check it from a shell before touching the UI:
+no `Access-Control-Allow-Origin`) and the catalogue shows *“The store could not be reached.
+Check your connection and try again.”*; the console logs `Could not reach the API at …` with the
+exact origin to allow. Check it from a shell before touching the UI:
 
 ```bash
 curl -i -H 'Origin: https://<site>.onrender.com' \

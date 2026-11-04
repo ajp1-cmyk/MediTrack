@@ -13,8 +13,8 @@ export default function Footer() {
           <div>
             <strong>MediTrack</strong>
             <p>
-              Genuine medicines with live stock and expiry dates, prescriptions checked by
-              pharmacists, and secure checkout — delivered to your door.
+              Medicines in stock with real expiry dates, prescriptions checked by our
+              pharmacists, and secure checkout. Delivered to your door.
             </p>
             <ul className="footer-trust">
               <li>
@@ -43,7 +43,7 @@ export default function Footer() {
           <div>
             <h4>Service</h4>
             <span>
-              <Icon name="clock" size={15} /> Mon–Sat, 9 am – 9 pm
+              <Icon name="clock" size={15} /> Open 24 hours, every day
             </span>
             <a href="mailto:support@meditrack.example">support@meditrack.example</a>
             <span>Rx verified within 2 hours</span>
@@ -52,8 +52,7 @@ export default function Footer() {
       </div>
 
       <div className="footer-bottom">
-        <span>© {new Date().getFullYear()} MediTrack · Software engineering course project</span>
-        <span>Demo storefront — no real medicines are dispensed.</span>
+        <span>© {new Date().getFullYear()} MediTrack. All rights reserved.</span>
       </div>
     </footer>
   );

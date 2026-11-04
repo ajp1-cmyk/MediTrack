@@ -110,8 +110,8 @@ export default function Home() {
           <span className="eyebrow">Online pharmacy · delivered to your door</span>
           <h1>Your medicine cabinet, delivered.</h1>
           <p className="store-hero-lead">
-            Browse live stock with manufacturing and expiry dates, add what you need and check
-            out in seconds — prescriptions verified by our pharmacists.
+            Browse live stock with manufacturing and expiry dates, add what you need, and check
+            out in seconds. Every prescription is checked by our pharmacists.
           </p>
 
           <form className="hero-search" role="search" onSubmit={(event) => event.preventDefault()}>
