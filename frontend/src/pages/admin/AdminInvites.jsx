@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { adminApi } from '../../lib/api.js';
+import { appUrl } from '../../lib/config.js';
 import { formatDate } from '../../lib/format.js';
 
 const STATUS_LABELS = {
@@ -61,7 +62,8 @@ export default function AdminInvites() {
     }
   };
 
-  const inviteLink = created ? `${window.location.origin}${created.registerPath}` : '';
+  // Hash builds put the route after `#`, so build the link through appUrl().
+  const inviteLink = created ? appUrl(created.registerPath) : '';
 
   const copyLink = async () => {
     try {

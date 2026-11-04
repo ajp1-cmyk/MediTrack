@@ -1105,6 +1105,11 @@ every `/api/…` and `/uploads/…` URL with `VITE_API_BASE_URL`, so only two th
 | Render **service** env | `CORS_ORIGIN` | `https://<site>.netlify.app` |
 | Render **service** env | `COOKIE_SAMESITE` | `none` |
 
+A Render **Environment Group** is *not* applied automatically: link it on the service
+(**Environment → Linked Environment Groups → Link**) and delete any copy of the same key from the
+service's own variable list, because a service-level value always wins over a linked group. A
+group that is created but never linked leaves the service running on its old values.
+
 `VITE_API_BASE_URL` is **inlined at build time**, so the site must be rebuilt after changing
 it; leave it empty and the SPA falls back to relative URLs (Vite proxy locally, Netlify
 rewrite in production). `CORS_ORIGIN` lets the browser send credentialed requests, and
@@ -1118,7 +1123,10 @@ The SPA can be hosted on Render as well — **Static Site**, root directory `fro
 (services do not share environment variables) and a `/* → /index.html` rewrite for
 client-side routing. A static site serves only its own files, so an API request that still
 goes to `/api/…` on that origin comes back as Render's plain-text `404 Not Found` — which the
-catalogue reports as `Unexpected token 'N', "Not Found " is not valid JSON`. See section 8,
+catalogue reports as `Unexpected token 'N', "Not Found " is not valid JSON`. The same plain
+`Not Found` is what a **reload of a product page** (`/medicines/<id>`) gets without that
+rewrite; if the static site has no Redirects/Rewrites tab, build it with `VITE_ROUTER_MODE=hash`
+(section 8) so every URL only ever requests `/`. See section 8,
 “SPA on Render (static site)”.
 
 If the base URL is right but `CORS_ORIGIN` is not, the browser discards the API's `403` (it has

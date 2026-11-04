@@ -259,6 +259,7 @@ Browser walkthrough:
 | Sign-in succeeds but the next reload is signed out, and guest carts never stick | **Split origin** without `COOKIE_SAMESITE=none` on the API (plus its matching `CORS_ORIGIN`). The browser drops `SameSite=Lax` cookies on cross-site responses, so the refresh and guest-cart cookies never arrive. |
 | Requests still go to `/.netlify/functions/api` after switching to Render | The SPA was built **before** `VITE_API_BASE_URL` existed (`frontend/.env.production` or the Netlify build variable). Vite inlines it, so clear the cache and redeploy. |
 | 404 when refreshing `/orders` | The SPA fallback rule is missing or is not last in `netlify.toml`. |
+| 404 when **reloading a deep link** (`/medicines/<id>`, `/orders/<id>/confirmation`, `/cart`, `/admin/orders`) on the Render static site — usually reported as “product page / order details not found on reload” | The Static Site has no SPA fallback: Render serves an existing file, then applies rules, then answers `404 Not Found`, and a reload / a tab restored from the background is a full document request rather than a client-side navigation. Add `/* → /index.html` with Action **Rewrite** (Static Site → Settings → Redirects/Rewrites), save, and redeploy. Three ways this still fails: Source entered as `/` (matches only the home page — the `*` is required), Action **Redirect** instead of Rewrite (the 301 drops the path and lands on `/`), or the rule saved without a deploy. `404.html` does not help on Render. If the static site has no Redirects/Rewrites tab at all, build the SPA with `VITE_ROUTER_MODE=hash` instead (section 8) — hash URLs need no rule. |
 | Netlify build fails on `npm ci` | Both lockfiles must be committed: `backend/package-lock.json` and `frontend/package-lock.json`. |
 | `Refusing to start in production without …` (local/Render) | `JWT_SECRET` / `COOKIE_SECRET` missing. |
 | Prescription file returns `could not be decrypted` | `RX_ENCRYPTION_KEY` changed (or was not set and `JWT_SECRET` rotated). Restore the original key; the file cannot be recovered otherwise. |
@@ -338,6 +339,33 @@ Forgetting `COOKIE_SAMESITE=none` is the classic trap: sign-in looks successful 
 token lives in memory), but the browser drops the `SameSite=Lax` refresh cookie on a
 cross-site response, so the next reload is signed out and guest carts never stick.
 
+> **Render Environment Groups do not apply themselves.** Putting `CORS_ORIGIN` (or any secret)
+> in an **Environment Group** does *not* put it on the service — the group is inert storage until
+> something links it, and creating a group does not create or configure a service. Two things are
+> required:
+>
+> 1. **Link the group** — API service → **Environment** → **Linked Environment Groups** → pick the
+>    group → **Link**. Render then deploys the service automatically. A group can be linked to any
+>    number of services, and a service can link several groups.
+> 2. **Remove the same key from the service's own list.** A variable defined directly on the
+>    service always beats the linked group (Render guarantees that precedence); two groups that
+>    define the same key are ordered by creation date, which is not something to rely on.
+>
+> `CORS_ORIGIN` belongs to the **SPA's** origin (`https://<site>.onrender.com`, `https://<site>.netlify.app`,
+> no trailing slash), not to the API's own hostname — an API host there only allows the API to call
+> itself. Check the running value from outside:
+
+```bash
+# 403 {"error":"Origin not allowed by CORS"} → CORS_ORIGIN does not list the SPA origin.
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -H 'Origin: https://<site>.onrender.com' https://meditrack-1owj.onrender.com/api/medicines
+
+# Must echo the same origin:
+curl -s -D - -o /dev/null \
+  -H 'Origin: https://<site>.onrender.com' https://meditrack-1owj.onrender.com/api/medicines \
+  | grep -i '^access-control-allow-origin'
+```
+
 *Same-origin alternative.* If you would rather not have the SPA talk to Render directly,
 proxy through Netlify instead: leave `VITE_API_BASE_URL` empty and replace the two function
 rewrites in `netlify.toml` with
@@ -389,6 +417,27 @@ asset rules and is what keeps `/cart`, `/orders`, `/admin`, … working on a ref
 | Source | Destination | Action |
 | ------ | ----------- | ------ |
 | `/*` | `/index.html` | Rewrite |
+
+`Action` must be **Rewrite**, not Redirect: a redirect answers `/orders/<id>/confirmation` with a
+301 to `/index.html`, so the browser's address bar loses the order id and React Router mounts on
+`/` — the receipt becomes the catalogue. Render serves a *file that exists* before it applies
+rules, which is why `/` and `/assets/*` keep working without the rule while every deep link
+returns `404 Not Found`; that is exactly what a mobile reload of an order page hits, because a
+reload (or a tab restored from the background) is a fresh document request, not a client-side
+navigation. Render does **not** serve a `404.html` from the publish directory, so the copy that
+`frontend/vite.config.js` emits is not used there — the rule above is the only host-side fix.
+
+**No Redirects/Rewrites tab, or the rule has no effect?** Build the SPA for hash routing instead:
+
+| Static Site → Environment | Value |
+| ------------------------- | ----- |
+| `VITE_ROUTER_MODE` | `hash` |
+
+Save, then **Manual Deploy → Clear build cache & deploy**. Every route becomes
+`https://<static-site>.onrender.com/#/medicines/<id>`; the browser only ever requests `/`, so a
+reload of a product page, cart or order works with no rule at all. Links shared before the switch
+keep the old `/medicines/…` shape and still 404 — re-share them. Remove the variable (and rebuild)
+to return to clean paths once the rule is in place.
 
 Do **not** add an `/api/*` rewrite: the SPA calls the API service by absolute URL, and a static
 site cannot forward to another Render service. A static site only has the files it built, so
@@ -469,7 +518,9 @@ Render's ephemeral disk matters for them:
 | `backend/scripts/seed-admin.js` | First administrator against the deployed database |
 | `backend/scripts/seed-demo.js` | Smaller inventory-focused demo catalogue |
 | `backend/scripts/smoke-deploy.js` | Post-deploy health, catalogue, SPA and CORS checks |
-| `frontend/src/lib/config.js` | `VITE_API_BASE_URL` → `apiUrl()` / `assetUrl()`; empty means same-origin |
+| `frontend/src/lib/config.js` | `VITE_API_BASE_URL` → `apiUrl()` / `assetUrl()`; `VITE_ROUTER_MODE=hash` → hash routing (no host rewrite needed); empty values mean same-origin + clean paths |
+| `frontend/vite.config.js` | Dev proxy to the local API; emits `dist/404.html` (a copy of `index.html`) so hosts that serve a 404 file fall back to the SPA |
+| `frontend/src/pages/NotFound.jsx` | Unknown-route page (a stale order link says so instead of rendering the catalogue) |
 | `frontend/.env.production` | Production API origin (`npm run build` only; `npm run dev` keeps the Vite proxy) |
 | `backend/lib/cookies.js` | `COOKIE_SAMESITE` policy shared by the cart + refresh cookies |
 | `backend/lib/prescriptions.js` | AES-256-GCM uploads, validity window, checkout gate |

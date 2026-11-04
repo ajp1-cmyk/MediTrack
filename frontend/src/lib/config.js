@@ -25,6 +25,41 @@ export const API_BASE_URL = rawBaseUrl.replace(/\/+$/, '');
 export const usesRemoteApi = API_BASE_URL !== '';
 
 /**
+ * Routing style, chosen at build time: `'hash'` puts the router state after
+ * `#` (`/#/medicines/<id>`), anything else (the default) uses clean paths
+ * (`/medicines/<id>`).
+ *
+ * Clean paths are the right choice whenever the host can hand an unknown path
+ * back to `index.html` — `netlify.toml`, the Vite dev server and a Render
+ * Static Site with a `/* → /index.html` **Rewrite** rule all do. A static host
+ * without that rule answers a deep link with its own `404 Not Found` (Render
+ * static sites return a plain-text `Not Found`), and a *reload* then never
+ * reaches the app. Hash URLs need no host configuration at all, because the
+ * browser only ever requests `/`; the trade-off is that the address looks like
+ * `/#/orders/…`.
+ */
+export const ROUTER_MODE = (import.meta.env.VITE_ROUTER_MODE || '').trim().toLowerCase();
+
+/** True when the app is built for hash routing. */
+export const usesHashRouting = ROUTER_MODE === 'hash';
+
+/**
+ * Absolute link to an in-app path that works in either routing mode (used for
+ * links that are copied out of the app, e.g. an admin invite). Absolute `http(s)`
+ * URLs are returned unchanged.
+ *
+ * @param {string} path e.g. '/admin/register?invite=…'
+ * @returns {string}
+ */
+export function appUrl(path) {
+  if (!path) return path;
+  if (/^(https?:)?\/\//i.test(path)) return path;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const clean = path.startsWith('/') ? path : `/${path}`;
+  return usesHashRouting ? `${origin}/#${clean}` : `${origin}${clean}`;
+}
+
+/**
  * Absolute URL for an API path (`/api/…`).
  * @param {string} path
  * @returns {string}

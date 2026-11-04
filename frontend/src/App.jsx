@@ -1,10 +1,11 @@
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar.jsx';
 import Footer from './components/Footer.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import AddToCartDialog from './components/AddToCartDialog.jsx';
 import AdminLayout from './components/AdminLayout.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
+import { usesHashRouting } from './lib/config.js';
 import { CartProvider } from './context/CartContext.jsx';
 import { WishlistProvider } from './context/WishlistContext.jsx';
 import Home from './pages/Home.jsx';
@@ -19,6 +20,7 @@ import OrderConfirmation from './pages/OrderConfirmation.jsx';
 import Orders from './pages/Orders.jsx';
 import Wishlist from './pages/Wishlist.jsx';
 import Prescriptions from './pages/Prescriptions.jsx';
+import NotFound from './pages/NotFound.jsx';
 import AdminLogin from './pages/admin/AdminLogin.jsx';
 import AdminDashboard from './pages/admin/AdminDashboard.jsx';
 import AdminStock from './pages/admin/AdminStock.jsx';
@@ -140,7 +142,8 @@ function AppShell() {
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
 
-        <Route path="*" element={<Home />} />
+        {/* A mistyped or stale address: say so instead of showing the catalogue. */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
 
       {/* One dialog instance for the whole storefront, opened from any card. */}
@@ -151,15 +154,21 @@ function AppShell() {
 }
 
 export default function App() {
+  // Clean paths (`/medicines/<id>`) by default; hash paths (`/#/medicines/<id>`)
+  // when the build sets VITE_ROUTER_MODE=hash. A static host with no SPA
+  // fallback rule answers a deep link with its own 404, and a reload then never
+  // boots the app — hash URLs only ever request `/`, so they always work.
+  const Router = usesHashRouting ? HashRouter : BrowserRouter;
+
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <Router>
         <CartProvider>
           <WishlistProvider>
             <AppShell />
           </WishlistProvider>
         </CartProvider>
-      </BrowserRouter>
+      </Router>
     </AuthProvider>
   );
 }
