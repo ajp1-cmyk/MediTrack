@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext.jsx';
 import { useWishlist } from '../context/WishlistContext.jsx';
 import { medicinesApi } from '../lib/api.js';
 import { formatCurrency, formatDate } from '../lib/format.js';
+import { assetUrl } from '../lib/config.js';
 
 /** Public product page: full details, add to cart and save for later. */
 export default function MedicineDetail() {
@@ -129,7 +130,7 @@ export default function MedicineDetail() {
       <article className="medicine-detail">
         <div className="medicine-detail-media">
           {medicine.image ? (
-            <img src={`/uploads/${medicine.image}`} alt={medicine.name} />
+            <img src={assetUrl(`/uploads/${medicine.image}`)} alt={medicine.name} />
           ) : (
             <div className="medicine-detail-placeholder">💊</div>
           )}

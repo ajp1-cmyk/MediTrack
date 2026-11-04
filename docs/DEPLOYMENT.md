@@ -104,6 +104,14 @@ In production the server refuses to start without `JWT_SECRET` and `COOKIE_SECRE
    The same file rewrites `/api/*` and `/uploads/*` to `/.netlify/functions/api`, bundles
    `backend/uploads/**` with the function (demo images) and ends with the SPA fallback
    (`/* → /index.html`).
+
+   > **Committed default.** `frontend/.env.production` currently sets
+   > `VITE_API_BASE_URL=https://meditrack-1owj.onrender.com`, so `npm run build` (and therefore
+   > this Netlify build) calls the Express API on Render instead of the bundled function — the
+   > two function rewrites above are then unused. That is the split-origin setup in **section 8**,
+   > which also needs `CORS_ORIGIN` + `COOKIE_SAMESITE=none` on the API. To fall back to the
+   > single-host Netlify deploy described in this section, delete `frontend/.env.production` (or
+   > empty the value) and redeploy.
 3. Add environment variables under **Project configuration → Environment variables**:
 
    | Key | Value |
@@ -248,11 +256,15 @@ Browser walkthrough:
 | An uploaded PNG/JPEG/WEBP looks corrupted (grey box, `0x89` shown as `EF BF BD`) | `serverless-http` is UTF-8 decoding a binary response because its `binary` option is missing. Keep `SERVERLESS_OPTIONS.binary` in `backend/netlify.js`; `tests/serverless-response.test.js` guards it. |
 | Catalogue shows stale stock | A cache stored a GET. The API sets `Cache-Control: no-store` on `/api/*` (`backend/server.js`); redeploy if that middleware is missing. |
 | Cookies not stored | Serving over plain HTTP, or `NODE_ENV` is not `production` (cookies are `Secure` only in production). |
+| Sign-in succeeds but the next reload is signed out, and guest carts never stick | **Split origin** without `COOKIE_SAMESITE=none` on the API (plus its matching `CORS_ORIGIN`). The browser drops `SameSite=Lax` cookies on cross-site responses, so the refresh and guest-cart cookies never arrive. |
+| Requests still go to `/.netlify/functions/api` after switching to Render | The SPA was built **before** `VITE_API_BASE_URL` existed (`frontend/.env.production` or the Netlify build variable). Vite inlines it, so clear the cache and redeploy. |
 | 404 when refreshing `/orders` | The SPA fallback rule is missing or is not last in `netlify.toml`. |
 | Netlify build fails on `npm ci` | Both lockfiles must be committed: `backend/package-lock.json` and `frontend/package-lock.json`. |
 | `Refusing to start in production without …` (local/Render) | `JWT_SECRET` / `COOKIE_SECRET` missing. |
 | Prescription file returns `could not be decrypted` | `RX_ENCRYPTION_KEY` changed (or was not set and `JWT_SECRET` rotated). Restore the original key; the file cannot be recovered otherwise. |
 | Restock/hold sweeps do not run | Expected in function mode. Holds are released lazily on cart reads; restock from `/admin` or use the Render alternative (section 8). |
+| Catalogue empty, page shows `Unexpected token 'N', "Not Found " is not valid JSON` | The SPA asked a host that does not serve the API. Render answers any path it does not have with the plain-text `404 Not Found`, and `JSON.parse` chokes on it — so the request went to `/api/…` on the SPA's own origin. `VITE_API_BASE_URL` was empty (or wrong) **at build time**; see “SPA on Render” in section 8. |
+| Same `Unexpected token '<', "<!doctype…` | Same cause, but that host has an SPA fallback and returned `index.html` for `/api/…`. The failing URL under DevTools → Network is the give-away; set `VITE_API_BASE_URL` and rebuild. |
 
 ---
 
@@ -297,11 +309,37 @@ Environment variables (same names as section 3): `NODE_ENV=production`, `MONGODB
 `INVENTORY_AUTO_REPLENISH=on`, `CART_HOLD_MINUTES=15`. Leave `PORT` unset (Render injects it).
 `CORS_ORIGIN` is still only needed for a split origin.
 
-The free instance **spins down after 15 minutes** and takes about a minute to wake; Netlify's
-proxy gives up after **26 seconds**, so keep `/api/health` warm with an uptime pinger during a
-demo.
+The free instance **spins down after 15 minutes** and takes about a minute to wake; keep
+`/api/health` warm with an uptime pinger during a demo.
 
-To route the Netlify SPA at Render, replace the two function rewrites in `netlify.toml` with:
+### Point the SPA at Render
+
+`frontend/.env.production` already carries the deployed API origin:
+
+```
+VITE_API_BASE_URL=https://meditrack-1owj.onrender.com
+```
+
+Vite inlines it into `npm run build` (`frontend/src/lib/config.js` prefixes every `/api/…` and
+`/uploads/…` URL with it), so a Netlify build picks it up automatically — no `netlify.toml`
+change is needed, and the `/api/*` function rewrites simply stop being used. A Netlify
+**build** variable with the same name overrides the file. `npm run dev` runs in development
+mode, so it still goes through the Vite proxy to `http://localhost:5000`.
+
+Then set these on the **Render service**:
+
+| Variable | Value | Why |
+| -------- | ----- | --- |
+| `CORS_ORIGIN` | `https://<site>.netlify.app` | the browser origin allowed to send credentialed requests (comma-separate previews/custom domains) |
+| `COOKIE_SAMESITE` | `none` | the refresh and guest-cart cookies must cross sites; `None` requires HTTPS, which Render provides |
+
+Forgetting `COOKIE_SAMESITE=none` is the classic trap: sign-in looks successful (the access
+token lives in memory), but the browser drops the `SameSite=Lax` refresh cookie on a
+cross-site response, so the next reload is signed out and guest carts never stick.
+
+*Same-origin alternative.* If you would rather not have the SPA talk to Render directly,
+proxy through Netlify instead: leave `VITE_API_BASE_URL` empty and replace the two function
+rewrites in `netlify.toml` with
 
 ```toml
 [[redirects]]
@@ -320,9 +358,55 @@ To route the Netlify SPA at Render, replace the two function rewrites in `netlif
 ```
 
 Keep the SPA fallback last. `X-Forwarded-Proto` stops the API's production HTTPS redirect from
-bouncing the browser to the Render hostname. On the free plan the disk is **ephemeral**, but
+bouncing the browser to the Render hostname, and no CORS/cookie changes are needed because the
+browser only ever sees the Netlify origin. On the free plan the disk is **ephemeral**, but
 medicine images survive a redeploy because the bytes live in MongoDB (`medicineimages`);
 prescription files are safe for the same reason.
+
+### SPA on Render (static site)
+
+Render can serve the React build too, so the whole app lives on one provider. **New →
+Static Site** from the repository:
+
+| Setting | Value |
+| ------- | ----- |
+| Root Directory | `frontend` |
+| Build Command | `npm ci && npm run build` |
+| Publish Directory | `dist` |
+
+Set `VITE_API_BASE_URL` on the **static site** (Environment → Add Environment Variable), not on
+the API service: Render does not share environment variables between services. Its value is the
+API origin, e.g. `https://meditrack-1owj.onrender.com`.
+
+> A variable defined in the Render dashboard overrides `frontend/.env.production`, even when it is
+> **empty** — so a blank `VITE_API_BASE_URL` there silently rebuilds the SPA with same-origin URLs
+> and reproduces the 404 below. Delete the variable instead of leaving it blank.
+
+Add one rewrite under **Redirects/Rewrites** (Static Site → Settings). It must come *after* any
+asset rules and is what keeps `/cart`, `/orders`, `/admin`, … working on a refresh:
+
+| Source | Destination | Action |
+| ------ | ----------- | ------ |
+| `/*` | `/index.html` | Rewrite |
+
+Do **not** add an `/api/*` rewrite: the SPA calls the API service by absolute URL, and a static
+site cannot forward to another Render service. A static site only has the files it built, so
+anything else — `/api/medicines` included — is answered by Render's edge with a plain-text
+`404 Not Found`.
+
+Then set these on the **API service**:
+
+| Variable | Value | Why |
+| -------- | ----- | --- |
+| `CORS_ORIGIN` | `https://<static-site>.onrender.com` | the browser origin allowed to send credentialed requests |
+| `COOKIE_SAMESITE` | `none` | the refresh and guest-cart cookies must cross sites (HTTPS only) |
+
+**What a missed step looks like.** The catalogue shows *“We could not load the catalogue —
+Unexpected token 'N', "Not Found " is not valid JSON”*. That is `JSON.parse` choking on Render's
+plain-text 404: the bundle was built with an empty or wrong `VITE_API_BASE_URL`, so it requested
+`/api/medicines` from the static site itself. Open DevTools → Network and check the failing
+request URL — it must start with the API origin. Vite inlines the value at build time, so after
+fixing the variable redeploy with **Manual Deploy → Clear build cache & deploy**.
 
 ---
 
@@ -384,6 +468,9 @@ Render's ephemeral disk matters for them:
 | `backend/scripts/seed-admin.js` | First administrator against the deployed database |
 | `backend/scripts/seed-demo.js` | Smaller inventory-focused demo catalogue |
 | `backend/scripts/smoke-deploy.js` | Post-deploy health, catalogue, SPA and CORS checks |
+| `frontend/src/lib/config.js` | `VITE_API_BASE_URL` → `apiUrl()` / `assetUrl()`; empty means same-origin |
+| `frontend/.env.production` | Production API origin (`npm run build` only; `npm run dev` keeps the Vite proxy) |
+| `backend/lib/cookies.js` | `COOKIE_SAMESITE` policy shared by the cart + refresh cookies |
 | `backend/lib/prescriptions.js` | AES-256-GCM uploads, validity window, checkout gate |
 | `backend/lib/purchaseLimit.js` | Daily unit cap used by the cart summary and checkout |
 | `backend/models/Prescription.js` | Encrypted prescription documents + verification state |

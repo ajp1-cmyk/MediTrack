@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useWishlist } from '../context/WishlistContext.jsx';
 import { formatCurrency } from '../lib/format.js';
+import { assetUrl } from '../lib/config.js';
 
 export default function Wishlist() {
   const {
@@ -104,7 +105,7 @@ export default function Wishlist() {
             {item.image ? (
               <img
                 className="cart-thumb"
-                src={`/uploads/${item.image}`}
+                src={assetUrl(`/uploads/${item.image}`)}
                 alt={item.name}
               />
             ) : (

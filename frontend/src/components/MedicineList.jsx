@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext.jsx';
 import { useWishlist } from '../context/WishlistContext.jsx';
 import { formatCurrency } from '../lib/format.js';
 import Icon from './Icon.jsx';
+import { assetUrl } from '../lib/config.js';
 
 /** Loading placeholder that matches the real card geometry. */
 export function MedicineGridSkeleton({ count = 8 }) {
@@ -98,7 +99,7 @@ export default function MedicineList({ medicines, emptyMessage }) {
                 >
                   {medicine.image ? (
                     <img
-                      src={`/uploads/${medicine.image}`}
+                      src={assetUrl(`/uploads/${medicine.image}`)}
                       alt={medicine.name}
                       className="product-image"
                       loading="lazy"

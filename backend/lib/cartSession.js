@@ -22,6 +22,7 @@ const {
 const { httpError } = require('./errors');
 const { prescriptionStateFor } = require('./prescriptions');
 const { purchaseLimitSummary } = require('./purchaseLimit');
+const { cookieSecurity } = require('./cookies');
 
 const COOKIE_NAME = 'mt_cart';
 const COOKIE_PATH = '/api';
@@ -38,9 +39,9 @@ function getCookieSecret() {
 function cookieOptions() {
   return {
     httpOnly: true,
-    sameSite: 'lax',
-    // Only sent over HTTPS in production; plain HTTP is needed for local dev.
-    secure: process.env.NODE_ENV === 'production',
+    // SameSite/Secure policy: see lib/cookies.js (COOKIE_SAMESITE=none when the
+    // SPA is served from another origin).
+    ...cookieSecurity(),
     signed: true,
     path: COOKIE_PATH,
     maxAge: GUEST_CART_TTL_MS,
@@ -82,8 +83,7 @@ function clearCartCookie(res) {
   res.clearCookie(COOKIE_NAME, {
     path: COOKIE_PATH,
     httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    ...cookieSecurity(),
   });
 }
 

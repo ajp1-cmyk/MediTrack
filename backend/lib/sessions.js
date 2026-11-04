@@ -10,6 +10,7 @@
 const crypto = require('crypto');
 const Session = require('../models/Session');
 const User = require('../models/User');
+const { cookieSecurity } = require('./cookies');
 
 const COOKIE_NAME = 'mt_refresh';
 const COOKIE_PATH = '/api/auth';
@@ -46,9 +47,9 @@ function hashToken(token) {
 function cookieOptions(expiresAt) {
   const options = {
     httpOnly: true,
-    sameSite: 'lax',
-    // Only sent over HTTPS in production; plain HTTP is needed for local dev.
-    secure: process.env.NODE_ENV === 'production',
+    // SameSite/Secure policy: see lib/cookies.js (COOKIE_SAMESITE=none when the
+    // SPA is served from another origin).
+    ...cookieSecurity(),
     signed: true,
     path: COOKIE_PATH,
   };
@@ -69,8 +70,7 @@ function setRefreshCookie(res, token, expiresAt) {
 function clearRefreshCookie(res) {
   res.clearCookie(COOKIE_NAME, {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    ...cookieSecurity(),
     path: COOKIE_PATH,
   });
 }

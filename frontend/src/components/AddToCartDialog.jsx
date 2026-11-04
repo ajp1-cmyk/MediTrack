@@ -4,6 +4,7 @@ import Modal from './Modal.jsx';
 import QuantityStepper from './QuantityStepper.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { formatCurrency } from '../lib/format.js';
+import { assetUrl } from '../lib/config.js';
 
 /**
  * Confirm dialog shown when "Add to cart" is clicked.
@@ -89,7 +90,7 @@ export default function AddToCartDialog() {
               {addTarget.image ? (
                 <img
                   className="modal-thumb"
-                  src={`/uploads/${addTarget.image}`}
+                  src={assetUrl(`/uploads/${addTarget.image}`)}
                   alt={addTarget.name}
                 />
               ) : (

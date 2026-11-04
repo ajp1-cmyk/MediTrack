@@ -101,6 +101,8 @@ meditrack/
 ├── netlify.toml               # build + function rewrites + bundled images + SPA fallback
 ├── netlify/functions/api.js   # Netlify Function entry point (delegates to backend/netlify.js)
 └── frontend/
+    ├── .env.example                    # VITE_API_BASE_URL template (empty = same origin)
+    ├── .env.production                 # API origin for `npm run build` (dev uses the proxy)
     └── src/
         ├── App.jsx                        # router + providers + layout
         ├── main.jsx                       # entry: fonts + Open Props easings + theme imports
@@ -113,6 +115,7 @@ meditrack/
         │   └── WishlistContext.jsx        # account wishlist, empty on sign-out
         ├── lib/
         │   ├── api.js                     # fetch wrapper (memory JWT + refresh) + APIs
+        │   ├── config.js                  # VITE_API_BASE_URL → apiUrl()/assetUrl() for split deploys
         │   └── format.js                  # currency, dates, status labels
         ├── components/
         │   ├── Navbar.jsx                 # promo strip + nav + cart/wishlist badges + user chip
@@ -1090,6 +1093,33 @@ domain, branch/deploy previews) if they call the API, otherwise those POST/PATCH
 requests get **403** while GETs still work. The full runbook — including the alternative
 long-running Render service, which is still the way to get the background restock/hold
 sweeps — is in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+### Split deploy: SPA on Netlify, API on Render
+
+The SPA can also call an API on a different origin. `frontend/src/lib/config.js` prefixes
+every `/api/…` and `/uploads/…` URL with `VITE_API_BASE_URL`, so only two things change:
+
+| Where | Variable | Value |
+| ----- | -------- | ----- |
+| `frontend/.env.production` (or the Netlify **build** env) | `VITE_API_BASE_URL` | `https://meditrack-1owj.onrender.com` |
+| Render **service** env | `CORS_ORIGIN` | `https://<site>.netlify.app` |
+| Render **service** env | `COOKIE_SAMESITE` | `none` |
+
+`VITE_API_BASE_URL` is **inlined at build time**, so the site must be rebuilt after changing
+it; leave it empty and the SPA falls back to relative URLs (Vite proxy locally, Netlify
+rewrite in production). `CORS_ORIGIN` lets the browser send credentialed requests, and
+`COOKIE_SAMESITE=none` lets the refresh and guest-cart cookies travel between the two sites —
+without it sign-in appears to work but the next reload is signed out, because browsers drop
+`SameSite=Lax` cookies on cross-site requests. Section 8 of
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) has the full Render runbook.
+
+The SPA can be hosted on Render as well — **Static Site**, root directory `frontend`, build
+`npm ci && npm run build`, publish `dist`, `VITE_API_BASE_URL` set on the **static site**
+(services do not share environment variables) and a `/* → /index.html` rewrite for
+client-side routing. A static site serves only its own files, so an API request that still
+goes to `/api/…` on that origin comes back as Render's plain-text `404 Not Found` — which the
+catalogue reports as `Unexpected token 'N', "Not Found " is not valid JSON`. See section 8,
+“SPA on Render (static site)”.
 
 In a serverless function the interval sweepers do not run: lapsed cart holds are released
 lazily when a cart is read, and an admin can restock from `/admin` (or

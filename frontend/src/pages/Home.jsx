@@ -4,6 +4,7 @@ import MedicineList, { MedicineGridSkeleton } from '../components/MedicineList.j
 import Icon from '../components/Icon.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { medicinesApi } from '../lib/api.js';
+import { assetUrl } from '../lib/config.js';
 
 const TRUST_POINTS = ['Genuine stock', 'Live expiry dates', 'Rx verification', 'Secure checkout'];
 
@@ -183,7 +184,7 @@ export default function Home() {
             </div>
           </div>
           <div className="hero-tile hero-tile-front">
-            <img src="/uploads/seed-paracetamol-500mg.svg" alt="" loading="lazy" />
+            <img src={assetUrl('/uploads/seed-paracetamol-500mg.svg')} alt="" loading="lazy" />
             <div className="hero-tile-copy">
               <strong>Paracetamol 500mg</strong>
               <span>In stock · 15 tablets</span>

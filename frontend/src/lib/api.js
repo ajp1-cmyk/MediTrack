@@ -5,6 +5,12 @@
 // this module for the lifetime of the tab, so XSS cannot read a persistent
 // credential. A page reload silently restores the session through the httpOnly
 // `mt_refresh` cookie.
+//
+// Every path goes through `apiUrl()`, so the same code works same-origin (Vite
+// proxy, Netlify function) and against an API on another host
+// (VITE_API_BASE_URL, e.g. the Express server on Render).
+import { apiUrl, usesRemoteApi } from './config.js';
+
 let accessToken = null;
 
 export function getToken() {
@@ -48,7 +54,7 @@ export function refreshAccessToken({ notify = true } = {}) {
       try {
         let res;
         for (let attempt = 0; attempt <= REFRESH_RETRIES; attempt += 1) {
-          res = await fetch('/api/auth/refresh', {
+          res = await fetch(apiUrl('/api/auth/refresh'), {
             method: 'POST',
             credentials: 'include',
           });
@@ -84,7 +90,7 @@ function sendRequest(path, options = {}) {
   const { body, headers, ...rest } = options;
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
 
-  return fetch(path, {
+  return fetch(apiUrl(path), {
     ...rest,
     credentials: 'include', // sends/receives the signed httpOnly cookies
     body,
@@ -97,15 +103,53 @@ function sendRequest(path, options = {}) {
   });
 }
 
+/** First `max` characters of a response body, with whitespace collapsed. */
+function bodySnippet(text, max = 140) {
+  const flat = String(text || '').replace(/\s+/g, ' ').trim();
+  return flat.length > max ? `${flat.slice(0, max)}…` : flat;
+}
+
+/**
+ * Build the error for a response whose body is not JSON.
+ *
+ * A deployed SPA can end up talking to a host that does not serve the API:
+ * Render answers an unknown path with the plain-text `Not Found`, and a static
+ * host with an SPA fallback answers with `index.html`. `JSON.parse` on either
+ * throws a bare `SyntaxError` (`Unexpected token 'N', "Not Found " is not valid
+ * JSON`) that hides the status and the URL, so report what actually happened —
+ * and, for a 404, the usual cause.
+ */
+function nonJsonError(res, url, text) {
+  const contentType = (res.headers.get('content-type') || 'unknown').split(';')[0];
+  const status = `HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}`;
+  const snippet = bodySnippet(text);
+
+  let message = `${status} from ${url} was not JSON (${contentType})`;
+  if (snippet) message += `: “${snippet}”`;
+  if (res.status === 404) {
+    message += usesRemoteApi
+      ? ' — check that VITE_API_BASE_URL points at the running API'
+      : ' — this site is calling /api on its own origin, but no API is served there; set VITE_API_BASE_URL and rebuild';
+  }
+
+  const error = new Error(message);
+  error.status = res.status;
+  error.url = url;
+  return error;
+}
+
 /**
  * fetch() with JSON handling, the Authorization header and credentials.
  * On a 401 it tries one silent refresh and replays the request, so an expired
  * 15-minute access token is invisible to the user.
- * Throws an Error carrying `status` (and the parsed body as `data`) when the
- * response is not ok.
+ * Throws an Error carrying `status`, `url` (and the parsed body as `data`) when
+ * the response is not ok. A non-JSON body (a proxy/edge 404 page, an SPA
+ * fallback, an HTML error page) is reported as-is instead of surfacing the
+ * `JSON.parse` SyntaxError.
  */
 export async function apiFetch(path, options = {}) {
   const { retryOnUnauthorized = true, ...requestOptions } = options;
+  const url = apiUrl(path);
 
   let res = await sendRequest(path, requestOptions);
 
@@ -117,12 +161,20 @@ export async function apiFetch(path, options = {}) {
   }
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw nonJsonError(res, url, text);
+    }
+  }
 
   if (!res.ok) {
     const error = new Error((data && data.error) || `Request failed (${res.status})`);
     error.status = res.status;
     error.data = data;
+    error.url = url;
     throw error;
   }
 

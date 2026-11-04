@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import MedicineForm from '../../components/MedicineForm.jsx';
 import { adminApi } from '../../lib/api.js';
 import { formatCurrency } from '../../lib/format.js';
+import { assetUrl } from '../../lib/config.js';
 
 function StockEditor({ medicine, onSave }) {
   const [value, setValue] = useState(medicine.stock);
@@ -220,7 +221,7 @@ export default function AdminStock() {
                     <td>
                       <div className="table-product">
                         {medicine.image ? (
-                          <img src={`/uploads/${medicine.image}`} alt="" />
+                          <img src={assetUrl(`/uploads/${medicine.image}`)} alt="" />
                         ) : (
                           <span className="table-product-placeholder">💊</span>
                         )}

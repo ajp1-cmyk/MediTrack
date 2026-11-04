@@ -8,6 +8,7 @@ import PurchaseLimitNotice from '../components/PurchaseLimitNotice.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { formatCurrency } from '../lib/format.js';
+import { assetUrl } from '../lib/config.js';
 
 export default function Cart() {
   const {
@@ -148,7 +149,7 @@ export default function Cart() {
               {item.image ? (
                 <img
                   className="cart-thumb"
-                  src={`/uploads/${item.image}`}
+                  src={assetUrl(`/uploads/${item.image}`)}
                   alt={item.name}
                 />
               ) : (
